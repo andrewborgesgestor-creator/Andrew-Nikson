@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Inpactum Digital — Gerador de Relatório Mensal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--or:#FF5C1A;--bg:#0d0d0d;--bg2:#161616;--bg3:#1e1e1e;--bd:#2a2a2a;--bd2:#333;--tx:#f2f2f2;--mu:#888;}
+html,body{min-height:100%;background:var(--bg);color:var(--tx);font-family:'Inter',sans-serif;}
+
+.hdr{background:#0a0a0a;border-bottom:1px solid var(--bd);padding:0 36px;display:flex;align-items:center;height:62px;gap:12px;position:sticky;top:0;z-index:100;}
+.hdr-txt{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;letter-spacing:.05em;}
+.hdr-txt span{color:var(--or);}
+.hdr-badge{margin-left:auto;background:rgba(255,92,26,.1);border:1px solid rgba(255,92,26,.3);color:var(--or);font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:4px 12px;border-radius:20px;}
+
+.main{max-width:820px;margin:0 auto;padding:40px 32px 80px;}
+.pg-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;margin-bottom:6px;}
+.pg-sub{font-size:13px;color:var(--mu);margin-bottom:36px;line-height:1.6;}
+
+.card{background:var(--bg2);border:1px solid var(--bd2);border-radius:12px;padding:24px;margin-bottom:20px;}
+.card-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--or);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.card-title::before{content:'';display:block;width:3px;height:14px;background:var(--or);border-radius:2px;flex-shrink:0;}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+.row1{margin-bottom:14px;}
+.fg{display:flex;flex-direction:column;gap:6px;}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);font-family:'Syne',sans-serif;}
+.req{color:var(--or);}
+input,select,textarea{background:var(--bg3);border:1px solid var(--bd2);border-radius:8px;color:var(--tx);font-family:'Inter',sans-serif;font-size:14px;padding:10px 13px;outline:none;transition:.2s;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(255,92,26,.12);}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%23888' d='M5 7L0 2h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;-webkit-appearance:none;appearance:none;cursor:pointer;}
+select option{background:#1e1e1e;}
+textarea{resize:vertical;min-height:200px;line-height:1.7;}
+
+/* COLOR PICKER */
+.color-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px;}
+.color-swatch{width:32px;height:32px;border-radius:8px;border:2px solid transparent;cursor:pointer;transition:.15s;flex-shrink:0;}
+.color-swatch.active{border-color:#fff;transform:scale(1.15);}
+.color-custom{display:flex;align-items:center;gap:8px;margin-left:4px;}
+.color-custom input[type=color]{width:36px;height:36px;border:none;border-radius:8px;padding:0;cursor:pointer;background:none;}
+
+/* PLATFORM PILLS */
+.plats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.pp{display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--bd2);border-radius:9px;padding:12px 8px;cursor:pointer;transition:.15s;font-family:'Syne',sans-serif;font-size:11px;font-weight:600;color:var(--mu);letter-spacing:.03em;user-select:none;text-align:center;}
+.pp svg{width:22px;height:22px;flex-shrink:0;}
+.pp:hover{border-color:rgba(255,92,26,.5);color:var(--tx);}
+.pp.on{background:rgba(255,92,26,.1);border-color:var(--or);color:var(--or);}
+
+hr.div{border:none;border-top:1px solid var(--bd);margin:20px 0;}
+
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:9px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;transition:.15s;}
+.btn svg{width:16px;height:16px;flex-shrink:0;}
+.btn-primary{background:var(--or);color:#fff;}
+.btn-primary:hover{background:#e84e12;}
+.btn-primary:disabled{background:#4a2a18;color:#886050;cursor:not-allowed;}
+.btn-outline{background:transparent;border:1px solid var(--bd2);color:var(--mu);}
+.btn-outline:hover{border-color:var(--or);color:var(--tx);}
+.btn-green{background:rgba(62,207,142,.12);border:1px solid rgba(62,207,142,.3);color:#3ecf8e;}
+.btn-green:hover{background:rgba(62,207,142,.2);}
+
+.spinner-wrap{display:none;text-align:center;padding:48px 0;}
+.spinner-wrap.show{display:block;}
+.spin{width:44px;height:44px;border:3px solid var(--bg3);border-top-color:var(--or);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 16px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.spin-t{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px;}
+.spin-s{font-size:12px;color:var(--mu);}
+
+.err{background:rgba(229,83,83,.1);border:1px solid rgba(229,83,83,.3);border-radius:8px;padding:14px;color:#ff8a8a;font-size:13px;display:none;margin-top:16px;line-height:1.6;}
+.err.show{display:block;}
+
+.result-wrap{display:none;}
+.result-wrap.show{display:block;}
+.result-box{background:var(--bg2);border:1px solid var(--bd2);border-radius:12px;padding:28px;font-size:14px;line-height:1.9;color:#d0d0d0;white-space:pre-wrap;font-family:'Inter',sans-serif;margin-bottom:20px;}
+.result-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
+.result-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.result-badge{background:rgba(62,207,142,.12);border:1px solid rgba(62,207,142,.3);color:#3ecf8e;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:20px;}
+
+@media(max-width:600px){
+  .row2,.row3{grid-template-columns:1fr;}
+  .plats{grid-template-columns:repeat(2,1fr);}
+  .main{padding:24px 16px 60px;}
+  .hdr{padding:0 16px;}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+    <defs><linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF2800"/><stop offset="50%" stop-color="#FF5C1A"/><stop offset="100%" stop-color="#FFAA00"/></linearGradient></defs>
+    <path d="M 50 7 A 43 43 0 1 0 90 65" fill="none" stroke="url(#lg1)" stroke-width="9.5" stroke-linecap="round"/>
+    <path d="M 58 16 C 64 22 68 32 61 40 L 70 37 C 67 47 58 55 49 59 C 52 50 51 45 47 42 L 41 51 C 39 42 43 30 53 23 C 51 30 53 34 56 32 Z" fill="url(#lg1)"/>
+  </svg>
+  <div class="hdr-txt">INPACTUM <span>DIGITAL</span></div>
+  <div class="hdr-badge">Gerador de Relatório IA</div>
+</div>
+
+<div class="main">
+  <div class="pg-title">Relatório de Performance Mensal</div>
+  <div class="pg-sub">Preencha os dados, cole as métricas e gere um relatório profissional com dashboard visual — pronto para baixar em PDF.</div>
+
+  <!-- DADOS DO CLIENTE -->
+  <div class="card">
+    <div class="card-title">Dados do Cliente</div>
+    <div class="row2">
+      <div class="fg"><span class="lbl">Nome do cliente <span class="req">*</span></span><input type="text" id="nome" placeholder="Ex: Kunda"/></div>
+      <div class="fg"><span class="lbl">Responsável na Inpactum</span><input type="text" id="resp" placeholder="Ex: Ana Lima"/></div>
+    </div>
+    <div class="row3">
+      <div class="fg"><span class="lbl">Período / Mês <span class="req">*</span></span><input type="text" id="periodo" placeholder="Ex: 09/03 a 15/03/2026"/></div>
+      <div class="fg"><span class="lbl">Segmento do cliente</span><input type="text" id="segmento" placeholder="Ex: Estética, Clínica..."/></div>
+      <div class="fg"><span class="lbl">Investimento total (R$)</span><input type="number" id="invest" placeholder="Ex: 282.29" min="0" step="0.01"/></div>
+    </div>
+    <div class="row1 fg"><span class="lbl">Objetivo principal / KPI <span class="req">*</span></span><input type="text" id="objetivo" placeholder="Ex: Gerar mensagens/leads para o WhatsApp com custo por resultado abaixo de R$ 5"/></div>
+  </div>
+
+  <!-- COR DO TEMA -->
+  <div class="card">
+    <div class="card-title">Cor do Tema do Relatório</div>
+    <div class="color-row" id="colorRow">
+      <div class="color-swatch active" style="background:#FF5C1A" data-c="#FF5C1A" title="Laranja Inpactum"></div>
+      <div class="color-swatch" style="background:#F5A623" data-c="#F5A623" title="Âmbar"></div>
+      <div class="color-swatch" style="background:#2563EB" data-c="#2563EB" title="Azul"></div>
+      <div class="color-swatch" style="background:#7C3AED" data-c="#7C3AED" title="Roxo"></div>
+      <div class="color-swatch" style="background:#059669" data-c="#059669" title="Verde"></div>
+      <div class="color-swatch" style="background:#DC2626" data-c="#DC2626" title="Vermelho"></div>
+      <div class="color-swatch" style="background:#0891B2" data-c="#0891B2" title="Ciano"></div>
+      <div class="color-swatch" style="background:#111827" data-c="#111827" title="Preto"></div>
+      <div class="color-custom">
+        <span style="font-size:11px;color:var(--mu);font-family:'Syne',sans-serif;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">Personalizar:</span>
+        <input type="color" id="customColor" value="#FF5C1A" title="Cor personalizada"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLATAFORMAS -->
+  <div class="card">
+    <div class="card-title">Plataformas Gerenciadas</div>
+    <div class="plats">
+      <div class="pp" data-p="Google Ads"><svg viewBox="0 0 24 24"><path d="M12 2L2 19.5h20L12 2z" fill="#4285F4"/><path d="M12 2L2 19.5h10V2z" fill="#34A853"/><path d="M2 19.5h20l-2-4H4z" fill="#FBBC04"/><path d="M22 19.5L12 2l2 4 6 13.5z" fill="#EA4335"/></svg>Google Ads</div>
+      <div class="pp" data-p="Meta Ads"><svg viewBox="0 0 24 24"><rect width="24" height="24" rx="12" fill="#0866FF"/><path d="M13.2 17.5v-5h1.7l.3-2h-2V9.3c0-.6.3-.9.9-.9h1.1V6.6c-.3-.1-.9-.2-1.7-.2-1.8 0-3 1.1-3 3V10.5h-1.5v2h1.5v5h2.7z" fill="#fff"/></svg>Meta Ads</div>
+      <div class="pp" data-p="Instagram Orgânico"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="url(#igi)"/><circle cx="12" cy="12" r="4.5" stroke="#fff" stroke-width="1.5" fill="none"/><circle cx="17.5" cy="6.5" r="1" fill="#fff"/><defs><radialGradient id="igi" cx="30%" cy="100%" r="120%"><stop offset="0%" stop-color="#ffd600"/><stop offset="30%" stop-color="#ff6d00"/><stop offset="60%" stop-color="#e91e8c"/><stop offset="100%" stop-color="#6200ea"/></radialGradient></defs></svg>Instagram</div>
+      <div class="pp" data-p="YouTube"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="#FF0000"/><path d="M10 9l5 3-5 3V9z" fill="#fff"/></svg>YouTube</div>
+      <div class="pp" data-p="LinkedIn"><svg viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#0A66C2"/><path d="M7 10h2v7H7v-7zm1-3a1.15 1.15 0 110 2.3A1.15 1.15 0 018 7zm4 3h2v1.2c.3-.5 1-1.2 2.2-1.2 2.3 0 2.8 1.5 2.8 3.5V17h-2v-3.2c0-.8 0-1.8-1.1-1.8s-1.3.9-1.3 1.8V17h-2v-7z" fill="#fff"/></svg>LinkedIn</div>
+      <div class="pp" data-p="SEO / GMB"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="#34A853" stroke-width="2"/><path d="M21 21l-3-3" stroke="#34A853" stroke-width="2" stroke-linecap="round"/><path d="M11 7v4l3 2" stroke="#34A853" stroke-width="1.5" stroke-linecap="round"/></svg>SEO / GMB</div>
+      <div class="pp" data-p="E-mail Marketing"><svg viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="3" fill="#6366F1"/><path d="M2 7l10 7 10-7" stroke="#fff" stroke-width="1.5"/></svg>E-mail Mkt</div>
+      <div class="pp" data-p="TikTok"><svg viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#010101"/><path d="M16 8.5a3.5 3.5 0 01-3.5-3.5H10v10a1.5 1.5 0 11-1.5-1.5v-2a3.5 3.5 0 103.5 3.5V11a5.5 5.5 0 003.5 1.2V10a3.5 3.5 0 01-3.5-3.5h-1A5.5 5.5 0 0016 12V8.5z" fill="#fff"/></svg>TikTok</div>
+    </div>
+  </div>
+
+  <!-- MÉTRICAS -->
+  <div class="card">
+    <div class="card-title">Métricas do Período <span class="req">*</span></div>
+    <div class="fg">
+      <span class="lbl">Cole aqui todas as métricas — qualquer formato</span>
+      <textarea id="metricas" placeholder="Exemplos:
+
+Meta Ads:
+- Investimento: R$ 138,92
+- Alcance: 3.674
+- Impressões: 6.384
+- Mensagens: 34
+- Cliques: 46
+- CTR: 0,72%
+- CPC: R$ 3,02
+- Custo/Msg: R$ 4,09
+
+Google Ads:
+- Investimento: R$ 143,37
+- Impressões: 4.721
+- Cliques: 304
+- CPC: R$ 0,47
+- Mensagens/Conversões: 15
+
+Instagram Orgânico:
+- Seguidores: 4.230 → 4.618
+- Engajamento: 4,7%
+- Posts: 12, Reels: 8
+
+Cole do jeito que vier — a IA entende qualquer formato."></textarea>
+    </div>
+    <hr class="div"/>
+    <div class="fg">
+      <span class="lbl">Observações e contexto do mês</span>
+      <textarea id="obs" style="min-height:100px" placeholder="Ex: Campanha evoluiu para Maximizar Conversões após 15 conversões registradas. Feriado na semana 2 afetou volume. Cliente pediu foco em leads para procedimento X..."></textarea>
+    </div>
+  </div>
+
+  <!-- BOTÃO GERAR -->
+  <div class="btn-row" style="margin-bottom:28px">
+    <button class="btn btn-primary" id="btnGerar">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M8 1l1.5 4.5H14l-3.7 2.7 1.4 4.3L8 10l-3.7 2.5 1.4-4.3L2 5.5h4.5L8 1z" fill="currentColor"/></svg>
+      Gerar Resumo com IA
+    </button>
+  </div>
+
+  <div class="spinner-wrap" id="spinWrap">
+    <div class="spin"></div>
+    <div class="spin-t">Gerando resumo com IA...</div>
+    <div class="spin-s">Analisando métricas e criando narrativa personalizada</div>
+  </div>
+  <div class="err" id="errBox"></div>
+
+  <!-- RESULTADO -->
+  <div class="result-wrap" id="resultWrap">
+    <div class="result-header">
+      <div>
+        <div class="result-title" id="rTitle"></div>
+        <div style="font-size:12px;color:var(--mu);margin-top:3px" id="rSub"></div>
+      </div>
+      <span class="result-badge">✓ Resumo gerado</span>
+    </div>
+    <div class="result-box" id="rText"></div>
+    <div class="btn-row">
+      <button class="btn btn-green" id="btnPDF">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Baixar Dashboard
+      </button>
+      <button class="btn btn-outline" id="btnNovo">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 013 8m0 0l2-2m-2 2l-2-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Novo Relatório
+      </button>
+    </div>
+    <div id="pdfTip" style="display:none;margin-top:16px;background:rgba(255,92,26,.08);border:1px solid rgba(255,92,26,.25);border-radius:10px;padding:14px 18px;">
+      <div style="font-family:Syne,sans-serif;font-size:12px;font-weight:700;color:#FF5C1A;margin-bottom:6px;">✅ Arquivo baixado!</div>
+      <div style="font-size:13px;color:#aaa;line-height:1.7;">
+        Um arquivo <strong style="color:#f2f2f2">.html</strong> foi baixado para o seu computador.<br/>
+        Para salvar como <strong style="color:#f2f2f2">PDF</strong>:<br/>
+        1. Abra o arquivo no <strong style="color:#f2f2f2">Google Chrome</strong><br/>
+        2. Pressione <strong style="color:#f2f2f2">Ctrl+P</strong><br/>
+        3. Destino: <strong style="color:#f2f2f2">Salvar como PDF</strong> — marque <strong style="color:#f2f2f2">Graficos de fundo</strong><br/>
+        4. Clique <strong style="color:#f2f2f2">Salvar</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var selPlats = [];
+var rawResume = '';
+var themeColor = '#FF5C1A';
+
+// ── COLOR SWATCHES ──
+document.querySelectorAll('.color-swatch').forEach(function(el){
+  el.addEventListener('click', function(){
+    document.querySelectorAll('.color-swatch').forEach(function(s){s.classList.remove('active');});
+    this.classList.add('active');
+    themeColor = this.dataset.c;
+    document.getElementById('customColor').value = themeColor;
+  });
+});
+document.getElementById('customColor').addEventListener('input', function(){
+  themeColor = this.value;
+  document.querySelectorAll('.color-swatch').forEach(function(s){s.classList.remove('active');});
+});
+
+// ── PLATFORM PILLS ──
+document.querySelectorAll('.pp').forEach(function(el){
+  el.addEventListener('click', function(){
+    var p = this.dataset.p;
+    if(this.classList.contains('on')){this.classList.remove('on');selPlats=selPlats.filter(function(x){return x!==p;});}
+    else{this.classList.add('on');selPlats.push(p);}
+  });
+});
+
+// ── GENERATE ──
+document.getElementById('btnGerar').addEventListener('click', async function(){
+  var nome     = document.getElementById('nome').value.trim();
+  var periodo  = document.getElementById('periodo').value.trim();
+  var obj      = document.getElementById('objetivo').value.trim();
+  var metrics  = document.getElementById('metricas').value.trim();
+  if(!nome)    {alert('Informe o nome do cliente.');return;}
+  if(!periodo) {alert('Informe o período.');return;}
+  if(!obj)     {alert('Informe o objetivo/KPI.');return;}
+  if(!metrics) {alert('Cole as métricas do mês.');return;}
+
+  var resp    = document.getElementById('resp').value.trim()||'Equipe Inpactum';
+  var invest  = document.getElementById('invest').value;
+  var seg     = document.getElementById('segmento').value.trim();
+  var obs     = document.getElementById('obs').value.trim();
+  var plats   = selPlats.length ? selPlats.join(', ') : 'não informadas';
+
+  document.getElementById('btnGerar').disabled=true;
+  document.getElementById('spinWrap').className='spinner-wrap show';
+  document.getElementById('errBox').className='err';
+  document.getElementById('resultWrap').className='result-wrap';
+
+  var prompt =
+    'Você é analista sênior de marketing digital da agência Inpactum Digital.\n\n'
+   +'Crie um relatório mensal profissional e fluido em português BR.\n\n'
+   +'DADOS:\n'
+   +'- Cliente: '+nome+(seg?' ('+seg+')':'')+'\n'
+   +'- Período: '+periodo+'\n'
+   +'- Responsável: '+resp+'\n'
+   +'- Objetivo/KPI: '+obj+'\n'
+   +'- Plataformas: '+plats+'\n'
+   +(invest?'- Investimento total: R$ '+invest+'\n':'')
+   +'\nMÉTRICAS:\n'+metrics+'\n'
+   +(obs?'\nCONTEXTO:\n'+obs+'\n':'')
+   +'\nEscreva o relatório dividido em EXATAMENTE estas seções com títulos entre colchetes:\n\n'
+   +'[VISÃO GERAL DO PERÍODO]\n'
+   +'2-3 parágrafos narrativos. Mencione o cliente pelo nome. Conecte os números ao objetivo.\n\n'
+   +'[DESTAQUES DE PERFORMANCE]\n'
+   +'Texto fluido (sem listas) destacando os 3-5 melhores resultados com dados reais.\n\n'
+   +'[ANÁLISE DAS PLATAFORMAS]\n'
+   +'1 parágrafo por plataforma ativa com os dados reais. Tom analítico e consultivo.\n\n'
+   +'[PONTOS DE ATENÇÃO]\n'
+   +'1-2 parágrafos construtivos com sugestão prática.\n\n'
+   +'[PRÓXIMOS PASSOS]\n'
+   +'1 parágrafo com 3-4 ações planejadas alinhadas ao objetivo.\n\n'
+   +'[MENSAGEM FINAL]\n'
+   +'1 parágrafo caloroso. Mencione o cliente. Assine: '+resp+' — Inpactum Digital.\n\n'
+   +'Tom: parceiro estratégico, consultivo. Sem bullet points. Texto corrido.';
+
+  try{
+    var res = await fetch('/api/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt:prompt})
+    });
+    if(!res.ok){var e=await res.json().catch(function(){return{};});throw new Error((e.error&&e.error.message)||'Erro HTTP '+res.status);}
+    var data=await res.json();
+    rawResume=data.text||'';
+    if(!rawResume) throw new Error('Resposta vazia da IA.');
+
+    document.getElementById('rTitle').textContent=nome+' — '+periodo;
+    document.getElementById('rSub').textContent='Resumo gerado por IA · Responsável: '+resp;
+    document.getElementById('rText').textContent=rawResume;
+    document.getElementById('resultWrap').className='result-wrap show';
+    document.getElementById('resultWrap').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){
+    document.getElementById('errBox').textContent='❌ Erro: '+e.message+'. Verifique sua conexão e tente novamente.';
+    document.getElementById('errBox').className='err show';
+  }
+  document.getElementById('spinWrap').className='spinner-wrap';
+  document.getElementById('btnGerar').disabled=false;
+});
+
+// ── NOVO ──
+document.getElementById('btnNovo').addEventListener('click',function(){
+  rawResume='';
+  document.getElementById('resultWrap').className='result-wrap';
+  document.getElementById('errBox').className='err';
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+// ── PARSE SECTIONS ──
+function parseSections(text){
+  var result={};
+  var re=/\[([^\]]+)\]([\s\S]*?)(?=\[[^\]]+\]|$)/g, m;
+  while((m=re.exec(text))!==null) result[m[1].trim()]=m[2].trim();
+  return result;
+}
+
+// ── EXTRACT NUMBERS ──
+function extractNums(txt){
+  var n={};
+  var pats=[
+    {k:'invest_meta',  r:/meta[^]*?(?:investimento|custo)[^R\d\n]*R?\$?\s*([\d.,]+)/i},
+    {k:'invest_google',r:/google[^]*?(?:investimento|custo)[^R\d\n]*R?\$?\s*([\d.,]+)/i},
+    {k:'invest_total', r:/(?:investimento|custo)\s*total[^R\d\n]*R?\$?\s*([\d.,]+)/i},
+    {k:'alcance',      r:/alcance[:\s]+([\d.,]+)/i},
+    {k:'impressoes',   r:/impress[oõ]es?[:\s]+([\d.,]+)/i},
+    {k:'cliques',      r:/cliques?[:\s]+([\d.,]+)/i},
+    {k:'msgs',         r:/(?:mensagens?|msgs?|convers[oõ]es?)[:\s]+([\d.,]+)/i},
+    {k:'ctr',          r:/ctr[:\s]+([\d.,]+)/i},
+    {k:'cpc',          r:/cpc[^R\d\n]*R?\$?\s*([\d.,]+)/i},
+    {k:'custo_msg',    r:/custo\/msg[^R\d\n]*R?\$?\s*([\d.,]+)/i},
+    {k:'seg_inicio',   r:/seguidores?[^→\n]*([\d.,]+)\s*→/i},
+    {k:'seg_fim',      r:/→\s*([\d.,]+)/},
+    {k:'engajamento',  r:/engajamento[^%\n]*([\d.,]+)\s*%/i},
+    {k:'views',        r:/(?:visualiza[cç][oõ]es?|views?)[:\s]+([\d.,]+)/i},
+  ];
+  pats.forEach(function(p){
+    var m=txt.match(p.r);
+    if(m){n[p.k]=parseFloat(m[1].replace(/\./g,'').replace(',','.'))||0;}
+  });
+  return n;
+}
+
+// ── SVG HELPERS ──
+function makePct(pct,label,color,bg){
+  bg=bg||'#e8e8e8';
+  return '<div style="margin-bottom:10px;">'
+    +'<div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:4px;"><span>'+label+'</span><span style="font-weight:700;color:'+color+'">'+pct+'%</span></div>'
+    +'<div style="height:10px;background:'+bg+';border-radius:5px;overflow:hidden;">'
+    +'<div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+color+';border-radius:5px;"></div>'
+    +'</div></div>';
+}
+
+function makeBar(items,color){
+  // items = [{label, value}]
+  var max=Math.max.apply(null,items.map(function(x){return x.value;}));
+  var svgH=130, svgW=items.length*80+20;
+  var svg='<svg width="'+svgW+'" height="'+svgH+'" viewBox="0 0 '+svgW+' '+svgH+'" xmlns="http://www.w3.org/2000/svg">';
+  items.forEach(function(item,i){
+    var barH=max>0?Math.round((item.value/max)*90):0;
+    var x=10+i*80, y=svgH-barH-30;
+    var isFirst=i===0;
+    svg+='<rect x="'+x+'" y="'+y+'" width="60" height="'+barH+'" rx="5" fill="'+color+'" opacity="'+(isFirst?'1':'0.55')+'"/>';
+    svg+='<text x="'+(x+30)+'" y="'+(y-6)+'" text-anchor="middle" font-size="11" font-weight="700" fill="'+(isFirst?color:'#666')+'">'+item.value.toLocaleString('pt-BR')+'</text>';
+    svg+='<text x="'+(x+30)+'" y="'+(svgH-10)+'" text-anchor="middle" font-size="10" fill="#888">'+item.label+'</text>';
+  });
+  svg+='</svg>';
+  return svg;
+}
+
+function makeDonut(slices,cx,cy,r){
+  // slices = [{pct, color}] where pct are values (will normalize)
+  var total=slices.reduce(function(s,x){return s+x.v;},0)||1;
+  var svg='<svg width="'+(cx*2)+'" height="'+(cy*2)+'" viewBox="0 0 '+(cx*2)+' '+(cy*2)+'" xmlns="http://www.w3.org/2000/svg">';
+  var start=-Math.PI/2;
+  slices.forEach(function(s){
+    var angle=(s.v/total)*2*Math.PI;
+    var x1=cx+r*Math.cos(start), y1=cy+r*Math.sin(start);
+    var x2=cx+r*Math.cos(start+angle-0.04), y2=cy+r*Math.sin(start+angle-0.04);
+    var lg=angle>Math.PI?1:0;
+    svg+='<path d="M'+cx+','+cy+' L'+x1+','+y1+' A'+r+','+r+' 0 '+lg+',1 '+x2+','+y2+' Z" fill="'+s.c+'"/>';
+    start+=angle;
+  });
+  var ir=r*0.52;
+  svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+ir+'" fill="#f5f5f5"/>';
+  svg+='</svg>';
+  return svg;
+}
+
+function makeFunnel(steps,color){
+  // steps = [{label, value}]
+  var max=steps[0]?steps[0].value:1;
+  var html='';
+  steps.forEach(function(s,i){
+    var pct=Math.round((s.value/max)*100);
+    var w=Math.max(30,pct);
+    var opacity=1-(i*0.15);
+    html+='<div style="margin-bottom:8px;text-align:center;">'
+      +'<div style="display:inline-block;background:'+color+';opacity:'+opacity+';border-radius:6px;padding:8px 0;width:'+w+'%;min-width:60px;font-size:13px;font-weight:700;color:#fff;">'+s.value.toLocaleString('pt-BR')+'</div>'
+      +'<div style="font-size:11px;color:#888;margin-top:3px;">'+s.label+'</div>'
+      +'</div>';
+  });
+  return html;
+}
+
+// ── BUILD PDF HTML ──
+function buildPDF(){
+  var nome    = document.getElementById('nome').value.trim();
+  var periodo = document.getElementById('periodo').value.trim();
+  var resp    = document.getElementById('resp').value.trim()||'Equipe Inpactum';
+  var obj     = document.getElementById('objetivo').value.trim();
+  var invest  = document.getElementById('invest').value;
+  var metrics = document.getElementById('metricas').value.trim();
+  var plats   = selPlats.length?selPlats:['Plataformas'];
+  var C       = themeColor; // tema escolhido
+  var Clight  = C+'22';    // transparente
+
+  var nums = extractNums(metrics);
+  var secs = parseSections(rawResume);
+
+  // ── INVEST DISPLAY ──
+  var investTotal = invest
+    ? 'R$ '+parseFloat(invest).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+    : (nums.invest_total>0 ? 'R$ '+nums.invest_total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—');
+
+  var totalMsgs  = nums.msgs>0  ? nums.msgs  : '—';
+  var totalClic  = nums.cliques>0? nums.cliques: '—';
+  var totalImp   = nums.impressoes>0?nums.impressoes:'—';
+
+  // ── TOP KPI CARDS (3 col like Lumi) ──
+  function kpiBlock(emoji,label,value,sub,highlight){
+    return '<div style="text-align:center;padding:20px 10px;border-right:1px solid #2a2a2a;flex:1;">'
+      +'<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:6px;">'+emoji+' '+label+'</div>'
+      +'<div style="font-size:32px;font-weight:900;color:'+(highlight?C:'#f2f2f2')+';line-height:1;">'+value+'</div>'
+      +'<div style="font-size:11px;color:#666;margin-top:4px;">'+sub+'</div>'
+      +'</div>';
+  }
+
+  // ── PLATFORM SECTION builder ──
+  function platSection(title,dotColor,cards,charts){
+    return '<div style="background:#fff;border:1px solid #e8e8e8;border-radius:14px;padding:28px;margin-bottom:24px;">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:22px;">'
+      +'<div style="width:4px;height:22px;background:'+C+';border-radius:2px;"></div>'
+      +'<div style="width:14px;height:14px;border-radius:50%;background:'+dotColor+';"></div>'
+      +'<div style="font-size:18px;font-weight:800;color:#111;letter-spacing:-.3px;">'+title+'</div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">'
+      +cards.map(function(card){
+        return '<div style="background:#fafafa;border:1px solid #eee;border-radius:10px;padding:14px;'+(card.highlight?'border-color:'+C+';border-width:2px;':'')+'">'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#aaa;margin-bottom:6px;">'+card.icon+' '+card.label+'</div>'
+          +'<div style="font-size:'+(card.big?'24px':'18px')+';font-weight:800;color:'+(card.highlight?C:'#111')+';line-height:1.1;">'+card.value+'</div>'
+          +(card.sub?'<div style="font-size:10px;color:#aaa;margin-top:4px;">'+card.sub+'</div>':'')
+          +'</div>';
+      }).join('')
+      +'</div>'
+      +(charts?'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">'+charts+'</div>':'')
+      +'</div>';
+  }
+
+  // ── METRIC CARD helper ──
+  function mcard(icon,label,value,sub,highlight){
+    return {icon:icon,label:label,value:value,sub:sub||'',highlight:!!highlight,big:true};
+  }
+
+  // ── CHART CARD wrapper ──
+  function chartCard(title,content){
+    return '<div style="background:#fafafa;border:1px solid #eee;border-radius:10px;padding:16px;">'
+      +'<div style="font-size:11px;font-weight:700;color:#555;margin-bottom:14px;">'+title+'</div>'
+      +content
+      +'</div>';
+  }
+
+  // ── BUILD PLATFORM BLOCKS ──
+  var platBlocks = '';
+
+  if(selPlats.indexOf('Meta Ads')>=0){
+    var metaInvest = nums.invest_meta>0 ? 'R$ '+nums.invest_meta.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+    var metaAlc    = nums.alcance>0 ? nums.alcance.toLocaleString('pt-BR') : '—';
+    var metaMsgs   = nums.msgs>0 ? nums.msgs.toLocaleString('pt-BR') : '—';
+    var metaCMsg   = nums.custo_msg>0 ? 'R$ '+nums.custo_msg.toFixed(2).replace('.',',') : '—';
+    var metaImp    = nums.impressoes>0 ? nums.impressoes.toLocaleString('pt-BR') : '—';
+    var metaClic   = nums.cliques>0 ? nums.cliques.toLocaleString('pt-BR') : '—';
+    var metaCTR    = nums.ctr>0 ? nums.ctr.toFixed(2).replace('.',',')+'%' : '—';
+    var metaCPC    = nums.cpc>0 ? 'R$ '+nums.cpc.toFixed(2).replace('.',',') : '—';
+
+    var alcImp = '';
+    if(nums.alcance>0&&nums.impressoes>0){
+      alcImp = chartCard('Alcance vs Impressões',
+        makeBar([{label:'Alcance',value:nums.alcance},{label:'Impressões',value:nums.impressoes}],C)
+      );
+    } else {
+      alcImp = chartCard('Alcance vs Impressões','<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Dados não informados</div>');
+    }
+
+    var convChart = '';
+    if(nums.cliques>0&&nums.msgs>0){
+      convChart = chartCard('Conversão (Cliques → Msgs)',
+        '<div style="padding:10px 0;text-align:center;">'
+        +'<div style="display:flex;justify-content:space-around;align-items:flex-end;">'
+        +'<div style="text-align:center;">'
+        +'<div style="font-size:28px;font-weight:800;color:#555;">'+nums.cliques.toLocaleString('pt-BR')+'</div>'
+        +'<div style="font-size:11px;color:#aaa;margin-top:4px;">Cliques</div>'
+        +'</div>'
+        +'<div style="font-size:24px;color:'+C+';align-self:center;">→</div>'
+        +'<div style="text-align:center;">'
+        +'<div style="font-size:28px;font-weight:800;color:'+C+';">'+nums.msgs.toLocaleString('pt-BR')+'</div>'
+        +'<div style="font-size:11px;color:'+C+';margin-top:4px;">Msgs</div>'
+        +'</div></div>'
+        +'<div style="margin-top:12px;font-size:11px;color:#888;">Taxa de conversão: '+Math.round((nums.msgs/nums.cliques)*100)+'%</div>'
+        +'</div>'
+      );
+    } else {
+      convChart = chartCard('Conversão (Cliques → Msgs)','<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Dados não informados</div>');
+    }
+
+    var cpcCard = chartCard('Custo por Resultado',
+      '<div style="text-align:center;padding:8px 0;">'
+      +'<div style="font-size:11px;color:#aaa;margin-bottom:4px;">Custo por Mensagem</div>'
+      +'<div style="font-size:36px;font-weight:900;color:'+C+';">'+metaCMsg+'</div>'
+      +(metaCMsg!=='—'?'<div style="font-size:11px;color:#888;margin-top:6px;">Principal resultado</div>':'')
+      +'</div>'
+    );
+
+    platBlocks += platSection(
+      'META ADS (Facebook &amp; Instagram)', '#0866FF',
+      [
+        mcard('💰','Investimento',metaInvest,''),
+        mcard('👀','Alcance',metaAlc,''),
+        mcard('💬','Mensagens',metaMsgs,'Principal Resultado',true),
+        mcard('💵','Custo/Msg',metaCMsg,''),
+        mcard('📊','Impressões',metaImp,''),
+        mcard('🖱','Cliques',metaClic,''),
+        mcard('📈','CTR',metaCTR,''),
+        mcard('💲','CPC',metaCPC,''),
+      ],
+      alcImp + convChart + cpcCard
+    );
+  }
+
+  if(selPlats.indexOf('Google Ads')>=0){
+    var gInvest = nums.invest_google>0 ? 'R$ '+nums.invest_google.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+    var gImp    = nums.impressoes>0&&selPlats.indexOf('Meta Ads')<0 ? nums.impressoes.toLocaleString('pt-BR') : '—';
+    var gClic   = nums.cliques>0&&selPlats.indexOf('Meta Ads')<0 ? nums.cliques.toLocaleString('pt-BR') : '—';
+    var gMsgs   = nums.msgs>0&&selPlats.indexOf('Meta Ads')<0 ? nums.msgs.toLocaleString('pt-BR') : '—';
+    var gCPC    = nums.cpc>0&&selPlats.indexOf('Meta Ads')<0 ? 'R$ '+nums.cpc.toFixed(2).replace('.',',') : '—';
+
+    // funil
+    var funnelItems=[];
+    if(nums.impressoes>0&&selPlats.indexOf('Meta Ads')<0) funnelItems.push({label:'Impressões',value:nums.impressoes});
+    if(nums.cliques>0&&selPlats.indexOf('Meta Ads')<0) funnelItems.push({label:'Cliques',value:nums.cliques});
+    if(nums.msgs>0&&selPlats.indexOf('Meta Ads')<0) funnelItems.push({label:'Conversões',value:nums.msgs});
+
+    var funnelChart = chartCard('Funil de Tráfego Google',
+      funnelItems.length>0
+        ? '<div style="padding:8px 0;">'+makeFunnel(funnelItems,C)+'</div>'
+        : '<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Preencha impressões, cliques e conversões</div>'
+    );
+
+    var cpcBlock = chartCard('Custo por Clique (CPC)',
+      '<div style="text-align:center;padding:10px 0;">'
+      +'<div style="font-size:40px;font-weight:900;color:'+C+';">'+gCPC+'</div>'
+      +(gCPC!=='—'&&parseFloat(gCPC.replace('R$ ','').replace(',','.'))<1?'<div style="font-size:12px;color:#3ecf8e;margin-top:8px;font-weight:600;">✓ Altamente eficiente</div>':'')
+      +'</div>'
+    );
+
+    platBlocks += platSection(
+      'GOOGLE ADS (Rede de Pesquisa)', '#34A853',
+      [
+        mcard('💰','Investimento',gInvest,''),
+        mcard('📊','Impressões',gImp,''),
+        mcard('🖱','Cliques',gClic,'Alto Volume',gClic!=='—'),
+        mcard('💲','CPC',gCPC,'Excelente custo',true),
+      ],
+      funnelChart + cpcBlock + chartCard('Plataforma','<div style="text-align:center;padding:12px 0;"><div style="font-size:13px;color:#555;">Rede de Pesquisa Google</div><div style="margin-top:12px;font-size:11px;color:#aaa;">Usuários com intenção de compra</div></div>')
+    );
+  }
+
+  // Outros canais genéricos
+  selPlats.filter(function(p){return p!=='Meta Ads'&&p!=='Google Ads';}).forEach(function(plat){
+    platBlocks += platSection(
+      plat.toUpperCase(), C,
+      [
+        mcard('📊','Impressões','—',''),
+        mcard('🖱','Cliques/Alcance','—',''),
+        mcard('💬','Conversões','—','',true),
+        mcard('💲','CPC/CPR','—',''),
+      ],''
+    );
+  });
+
+  // ── INSIGHTS ──
+  var insightSecs = parseSections(rawResume);
+  var insightText = insightSecs['ANÁLISE DAS PLATAFORMAS']||insightSecs['DESTAQUES DE PERFORMANCE']||'';
+  var insightItems = [];
+  var sentences = insightText.split(/(?<=[.!?])\s+/);
+  sentences.slice(0,4).forEach(function(s,i){
+    if(!s.trim()) return;
+    var icons=['✅','📈','🖱','💬'];
+    insightItems.push({icon:icons[i%icons.length],text:s.trim()});
+  });
+  if(!insightItems.length) insightItems.push({icon:'📊',text:'Resumo gerado com sucesso. Consulte o texto completo do relatório abaixo.'});
+
+  var insightsHTML = '';
+  for(var ii=0;ii<insightItems.length;ii+=2){
+    var a=insightItems[ii], b=insightItems[ii+1];
+    insightsHTML+='<div style="display:grid;grid-template-columns:1fr'+(b?' 1fr':'')+';gap:14px;margin-bottom:14px;">';
+    insightsHTML+='<div style="background:#fff;border:1px solid #e8e8e8;border-left:4px solid '+C+';border-radius:8px;padding:16px;">'
+      +'<div style="font-size:16px;margin-bottom:8px;">'+a.icon+'</div>'
+      +'<div style="font-size:13px;color:#333;line-height:1.7;">'+a.text+'</div>'
+      +'</div>';
+    if(b){
+      insightsHTML+='<div style="background:#fff;border:1px solid #e8e8e8;border-left:4px solid '+C+';border-radius:8px;padding:16px;">'
+        +'<div style="font-size:16px;margin-bottom:8px;">'+b.icon+'</div>'
+        +'<div style="font-size:13px;color:#333;line-height:1.7;">'+b.text+'</div>'
+        +'</div>';
+    }
+    insightsHTML+='</div>';
+  }
+
+  // ── RESUMO POR SECTIONS ──
+  var secOrder = ['VISÃO GERAL DO PERÍODO','DESTAQUES DE PERFORMANCE','ANÁLISE DAS PLATAFORMAS','PONTOS DE ATENÇÃO','PRÓXIMOS PASSOS','MENSAGEM FINAL'];
+  var secColors = ['#FF5C1A','#f59e0b',C,'#e55353','#3ecf8e',C];
+  var sectionsHTML='';
+  secOrder.forEach(function(sec,idx){
+    var body=secs[sec];
+    if(!body) return;
+    var col=secColors[idx]||C;
+    sectionsHTML+='<div style="margin-bottom:20px;page-break-inside:avoid;">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+      +'<div style="width:4px;height:16px;background:'+col+';border-radius:2px;flex-shrink:0;"></div>'
+      +'<div style="font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:'+col+';">'+sec+'</div>'
+      +'</div>'
+      +'<div style="background:#fafafa;border:1px solid #eee;border-left:3px solid '+col+';border-radius:0 8px 8px 0;padding:16px 18px;font-size:13px;line-height:1.85;color:#333;">'
+      +body.replace(/\n\n/g,'</p><p style="margin-top:8px">').replace(/\n/g,'<br/>')
+      +'</div></div>';
+  });
+  if(!sectionsHTML){
+    sectionsHTML='<div style="background:#fafafa;border-left:3px solid '+C+';padding:16px 18px;font-size:13px;line-height:1.85;color:#333;white-space:pre-wrap;">'+rawResume+'</div>';
+  }
+
+  // ── RESUMO FINAL (rodapé performance) ──
+  var metas = selPlats.filter(function(p){return p==='Meta Ads';});
+  var googles = selPlats.filter(function(p){return p==='Google Ads';});
+  var summaryCards='';
+  if(metas.length){
+    summaryCards+='<div style="flex:1;background:#0a0a0a;border-radius:12px;padding:20px;margin-right:12px;">'
+      +'<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#555;margin-bottom:4px;">META ADS</div>'
+      +'<div style="font-size:30px;font-weight:900;color:'+C+';line-height:1;">'+(nums.msgs>0?nums.msgs.toLocaleString('pt-BR'):'—')+'</div>'
+      +'<div style="font-size:11px;color:#888;margin-top:4px;">MENSAGENS</div>'
+      +'<div style="font-size:10px;color:#555;margin-top:8px;">Canal com mais mensagens</div>'
+      +'<div style="display:inline-block;margin-top:8px;background:'+C+'22;border:1px solid '+C+'44;color:'+C+';font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px;">MAIOR VOLUME</div>'
+      +'</div>';
+  }
+  if(googles.length){
+    summaryCards+='<div style="flex:1;background:#0a0a0a;border-radius:12px;padding:20px;">'
+      +'<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#555;margin-bottom:4px;">GOOGLE ADS</div>'
+      +'<div style="font-size:30px;font-weight:900;color:#3ecf8e;line-height:1;">'+(nums.cpc>0?'R$ '+nums.cpc.toFixed(2).replace('.',','):'—')+'</div>'
+      +'<div style="font-size:11px;color:#888;margin-top:4px;">POR CLIQUE</div>'
+      +'<div style="font-size:10px;color:#555;margin-top:8px;">Canal com menor CPC</div>'
+      +'<div style="display:inline-block;margin-top:8px;background:#3ecf8e22;border:1px solid #3ecf8e44;color:#3ecf8e;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px;">MENOR CUSTO</div>'
+      +'</div>';
+  }
+
+  // ── ASSEMBLE FULL HTML ──
+  var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;}</style>'
+    +'</head><body>'
+
+    // ── CAPA HEADER ──
+    +'<div style="background:'+C+';padding:32px 40px 28px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
+    +'<div>'
+    +'<div style="font-size:32px;font-weight:900;color:#fff;letter-spacing:-.5px;text-transform:uppercase;">'+nome+'</div>'
+    +'<div style="font-size:14px;color:rgba(255,255,255,.75);margin-top:6px;letter-spacing:.02em;">Relatório de Tráfego Pago | Performance Dashboard</div>'
+    +'</div>'
+    +'<div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 18px;text-align:center;backdrop-filter:blur(4px);">'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.7);">📅</div>'
+    +'<div style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap;">'+periodo+'</div>'
+    +'</div>'
+    +'</div></div>'
+
+    // ── KPI BAR ──
+    +'<div style="background:#111;display:flex;border-bottom:1px solid #222;">'
+    + kpiBlock('💰','INVESTIMENTO TOTAL',investTotal,'Meta + Google', true)
+    + kpiBlock('💬','TOTAL DE MENSAGENS',(typeof totalMsgs==='number'?totalMsgs.toLocaleString('pt-BR'):totalMsgs),'Conversões',true)
+    + kpiBlock('🖱','TOTAL DE CLIQUES',(typeof totalClic==='number'?totalClic.toLocaleString('pt-BR'):totalClic),'Todos os canais',true)
+    +'</div>'
+
+    // ── PLATFORM BLOCKS ──
+    +'<div style="padding:24px 32px;">'
+    + platBlocks
+
+    // ── ANÁLISE E INSIGHTS ──
+    +'<div style="margin-bottom:24px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">'
+    +'<div style="font-size:18px;">💡</div>'
+    +'<div style="font-size:16px;font-weight:800;color:#111;letter-spacing:-.2px;">ANÁLISE GERAL &amp; INSIGHTS</div>'
+    +'</div>'
+    + insightsHTML
+    +'</div>'
+
+    // ── RESUMO TEXTUAL COMPLETO ──
+    +'<div style="margin-bottom:24px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">'
+    +'<div style="width:4px;height:20px;background:'+C+';border-radius:2px;"></div>'
+    +'<div style="font-size:16px;font-weight:800;color:#111;">ANÁLISE COMPLETA</div>'
+    +'</div>'
+    + sectionsHTML
+    +'</div>'
+
+    // ── RESUMO PERFORMANCE FINAL ──
+    +(summaryCards?'<div style="margin-bottom:24px;">'
+    +'<div style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#aaa;margin-bottom:16px;">🏆 RESUMO DE PERFORMANCE</div>'
+    +'<div style="display:flex;gap:0;">'+summaryCards+'</div>'
+    +'</div>':'')
+
+    +'</div>'
+
+    // ── RODAPÉ ──
+    +'<div style="background:#0a0a0a;padding:16px 40px;display:flex;align-items:center;justify-content:space-between;">'
+    +'<div>'
+    +'<svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:8px;">'
+    +'<defs><linearGradient id="lg3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF2800"/><stop offset="100%" stop-color="#FFAA00"/></linearGradient></defs>'
+    +'<path d="M 50 7 A 43 43 0 1 0 90 65" fill="none" stroke="url(#lg3)" stroke-width="10" stroke-linecap="round"/>'
+    +'<path d="M 58 16 C 64 22 68 32 61 40 L 70 37 C 67 47 58 55 49 59 C 52 50 51 45 47 42 L 41 51 C 39 42 43 30 53 23 C 51 30 53 34 56 32 Z" fill="url(#lg3)"/>'
+    +'</svg>'
+    +'<span style="font-size:13px;color:#888;vertical-align:middle;">Relatório gerado em '+new Date().toLocaleDateString('pt-BR')+' | '+nome+' | Uso interno confidencial</span>'
+    +'</div>'
+    +'<div style="font-size:12px;color:'+C+';font-weight:700;">INPACTUM DIGITAL</div>'
+    +'</div>'
+    +'</body></html>';
+
+  return html;
+}
+
+// ── DOWNLOAD HTML (abre como página para imprimir/salvar PDF) ──
+document.getElementById('btnPDF').addEventListener('click', function(){
+  if(!rawResume){alert('Gere o resumo primeiro.');return;}
+
+  var btn  = this;
+  var nome    = document.getElementById('nome').value.trim();
+  var periodo = document.getElementById('periodo').value.trim();
+  var html    = buildPDF();
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Preparando...';
+
+  try {
+    // Cria Blob HTML e faz download direto
+    var blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    var fname = 'Relatorio_Inpactum_' + nome.replace(/\s+/g,'_') + '_' + periodo.replace(/[\/\s]/g,'-') + '.html';
+    a.href     = url;
+    a.download = fname;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 1000);
+
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" style="width:16px;height:16px;vertical-align:middle"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Baixar PDF com Dashboard';
+
+    // Mostra instrução
+    var tip = document.getElementById('pdfTip');
+    if(tip) tip.style.display = 'block';
+
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Baixar PDF com Dashboard';
+    alert('Erro ao gerar arquivo: ' + e.message);
+  }
+});
+</script>
+</body>
+</html>
