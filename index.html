@@ -190,8 +190,11 @@ Cole do jeito que vier — a IA entende qualquer formato."></textarea>
     </div>
     <div class="row2" style="margin-top:14px">
       <div class="fg">
-        <span class="lbl">Tamanho do resumo (linhas)</span>
+        <span class="lbl">Tamanho do resumo (linhas) <span id="resumoLinhasBadge" style="margin-left:8px;display:inline-block;background:rgba(255,92,26,.12);border:1px solid rgba(255,92,26,.35);color:var(--or);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;">6 linhas</span></span>
         <input type="number" id="resumoLinhas" min="1" max="30" step="1" value="6"/>
+        <div id="resumoLinhasHint" style="margin-top:8px;font-size:12px;color:var(--mu);line-height:1.6;">
+          O resumo executivo vai sair com <strong style="color:#f2f2f2">até 6 linhas</strong>.
+        </div>
       </div>
       <div class="fg">
         <span class="lbl">Dica</span>
@@ -258,6 +261,26 @@ var themeColor = '#FF5C1A';
 
 function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
 
+function updateResumoLinhasUI(){
+  var el = document.getElementById('resumoLinhas');
+  if(!el) return;
+  var v = clamp(parseInt(el.value||'6',10)||6, 1, 30);
+  el.value = v;
+  var badge = document.getElementById('resumoLinhasBadge');
+  var hint  = document.getElementById('resumoLinhasHint');
+  var txt = v + (v===1?' linha':' linhas');
+  if(badge) badge.textContent = txt;
+  if(hint)  hint.innerHTML = 'O resumo executivo vai sair com <strong style="color:#f2f2f2">até '+txt+'</strong>.';
+  // subtle visual feedback when changed from default
+  if(v !== 6){
+    el.style.borderColor = 'var(--or)';
+    el.style.boxShadow = '0 0 0 3px rgba(255,92,26,.12)';
+  } else {
+    el.style.borderColor = '';
+    el.style.boxShadow = '';
+  }
+}
+
 function limitLines(text, maxLines){
   maxLines = clamp(parseInt(maxLines||0,10)||0, 1, 60);
   var t = String(text||'').trim();
@@ -308,6 +331,13 @@ function enforceResumoSize(text, maxLines){
 }
 
 // ── COLOR SWATCHES ──
+updateResumoLinhasUI();
+var resumoLinhasEl = document.getElementById('resumoLinhas');
+if(resumoLinhasEl){
+  resumoLinhasEl.addEventListener('input', updateResumoLinhasUI);
+  resumoLinhasEl.addEventListener('change', updateResumoLinhasUI);
+}
+
 document.querySelectorAll('.color-swatch').forEach(function(el){
   el.addEventListener('click', function(){
     document.querySelectorAll('.color-swatch').forEach(function(s){s.classList.remove('active');});
