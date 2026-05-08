@@ -338,6 +338,25 @@ function enforceResumoSize(text, maxLines){
   return out.trim();
 }
 
+function cleanMarkdownArtifacts(text){
+  var t = String(text||'');
+  if(!t) return '';
+  // remove fenced code blocks markers if model ever emits them
+  t = t.replace(/```+/g,'');
+  // remove heading markers at line start
+  t = t.replace(/^\s{0,3}#{1,6}\s*/gm,'');
+  // remove bold/italic markers while keeping content
+  t = t.replace(/\*\*([^*]+)\*\*/g,'$1');
+  t = t.replace(/\*([^*]+)\*/g,'$1');
+  t = t.replace(/__([^_]+)__/g,'$1');
+  t = t.replace(/_([^_]+)_/g,'$1');
+  // remove markdown bullets at line start
+  t = t.replace(/^\s*[-*+]\s+/gm,'');
+  // normalize excessive blank lines
+  t = t.replace(/\n{3,}/g,'\n\n');
+  return t.trim();
+}
+
 // ── COLOR SWATCHES ──
 updateResumoLinhasUI();
 var resumoLinhasEl = document.getElementById('resumoLinhas');
@@ -393,12 +412,15 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
 
   var prompt =
     'Você é analista sênior de marketing digital da agência Inpactum Digital.\n\n'
-   +'Crie um relatório mensal profissional em português BR, com foco em clareza e concisão.\n'
+   +'Crie um relatório mensal profissional em português BR, com foco em clareza, profundidade e relevância prática.\n'
    +'REGRAS IMPORTANTES:\n'
    +'- Use SOMENTE as métricas fornecidas em MÉTRICAS. Não invente, não estime, não complete lacunas.\n'
    +'- Se algo não estiver presente nas métricas, escreva \"não informado\".\n'
    +'- Se houver mais de uma campanha (ex.: Vendas e Branding/Seguidores), NÃO misture os números: cite cada uma separadamente quando possível.\n'
    +'- Use os nomes exatamente assim (sem inventar): \"Vendas\" e \"Branding\". Não escreva \"Metaverso/Branding\".\n'
+   +'- Baseie a análise no que foi escrito em CONTEXTO (causas, decisões, testes, sazonalidade, mudanças de estratégia).\n'
+   +'- Evite frases genéricas. Sempre conecte diagnóstico + número + implicação de negócio.\n'
+   +'- NÃO use markdown: sem asteriscos, sem #, sem listas com -, apenas texto limpo.\n'
    +'- Seja breve: cada seção deve ter no máximo 4-6 frases curtas.\n\n'
    +'DADOS:\n'
    +'- Cliente: '+nome+(seg?' ('+seg+')':'')+'\n'
@@ -413,9 +435,9 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
    +'[VISÃO GERAL DO PERÍODO]\n'
    +'Escreva em no máximo '+resumoLinhas+' linha(s) curtas. Mencione o cliente pelo nome. Conecte os números ao objetivo.\n\n'
    +'[DESTAQUES DE PERFORMANCE]\n'
-   +'3-5 frases curtas destacando melhores resultados (com números exatos quando existirem).\n\n'
+   +'3-5 frases curtas destacando melhores resultados (com números exatos + o que esses resultados significam).\n\n'
    +'[ANÁLISE DAS PLATAFORMAS]\n'
-   +'1 parágrafo curto por plataforma/campanha ativa (Meta/Google/Branding/Vendas), usando somente números fornecidos.\n\n'
+   +'1 parágrafo curto por plataforma/campanha ativa (Meta/Google/Branding/Vendas), usando somente números fornecidos e explicando o porquê do desempenho com base no CONTEXTO.\n\n'
    +'[PONTOS DE ATENÇÃO]\n'
    +'2-4 frases construtivas com sugestão prática.\n\n'
    +'[PRÓXIMOS PASSOS]\n'
@@ -435,6 +457,7 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
     rawResume=data.text||'';
     if(!rawResume) throw new Error('Resposta vazia da IA.');
     rawResume = enforceResumoSize(rawResume, resumoLinhas);
+    rawResume = cleanMarkdownArtifacts(rawResume);
 
     document.getElementById('rTitle').textContent=nome+' — '+periodo;
     document.getElementById('rSub').textContent='Resumo gerado por IA · Responsável: '+resp;
@@ -587,6 +610,20 @@ function extractNums(txt){
     }
     return 0;
   }
+  function getLineNumber(patterns){
+    var lines = String(txt||'').replace(/\r\n/g,'\n').split('\n');
+    for(var li=0;li<lines.length;li++){
+      var line = lines[li];
+      for(var i=0;i<patterns.length;i++){
+        var m = line.match(patterns[i]);
+        if(m){
+          var v = parsePtNumber(m[1]);
+          if(v>0) return v;
+        }
+      }
+    }
+    return 0;
+  }
   // Avoid grabbing values from "A → B" comparisons by excluding the arrow in the "between" span.
   n.invest   = get([/investimento[^R\d\n→]*R?\$?\s*([\d.,]+)/i,/custo\s*total[^R\d\n→]*R?\$?\s*([\d.,]+)/i]);
   n.impressoes= get([/impress[oõ]es?[^\d\n]*([\d.,]+)/i]);
@@ -596,8 +633,14 @@ function extractNums(txt){
   n.cpm      = get([/cpm[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
   n.freq     = get([/frequ[eê]ncia[^%\d\n]*([\d.,]+)/i,/frequ[eê]ncia\s*m[eé]dia[^%\d\n]*([\d.,]+)/i]);
   n.visitas_lp= get([/vistas?\s*p[aá]gina[^\d\n]*([\d.,]+)/i,/landing[^\d\n]*([\d.,]+)/i,/p[aá]gina\s*de\s*destino[^\d\n]*([\d.,]+)/i]);
-  n.visitas_perfil = get([/visitas?\s*ao\s*perfil[^\d\n]*([\d.,]+)/i,/visitas?\s*no\s*perfil[^\d\n]*([\d.,]+)/i]);
-  n.novos_seguidores = get([/novos?\s*seguidores[^\d\n]*([\d.,]+)/i,/seguidores\s*novos[^\d\n]*([\d.,]+)/i]);
+  // Prefer explicit metric lines (avoids narrative phrases pulling investment values)
+  n.visitas_perfil = getLineNumber([
+    /^\s*visitas?\s*(?:ao|no)\s*perfil\s*[:\-]\s*([\d.,]+)\s*$/i
+  ]) || get([/visitas?\s*ao\s*perfil[^\d\n]*([\d.,]+)/i,/visitas?\s*no\s*perfil[^\d\n]*([\d.,]+)/i]);
+  n.novos_seguidores = getLineNumber([
+    /^\s*novos?\s*seguidores\s*[:\-]\s*([\d.,]+)\s*$/i,
+    /^\s*seguidores\s*novos\s*[:\-]\s*([\d.,]+)\s*$/i
+  ]) || get([/novos?\s*seguidores[^\d\n]*([\d.,]+)/i,/seguidores\s*novos[^\d\n]*([\d.,]+)/i]);
   n.custo_visita_perfil = get([/custo\s*por\s*visitas?\s*ao\s*perfil[^R\d\n]*R?\$?\s*([\d.,]+)/i,/custo\s*por\s*visita\s*ao\s*perfil[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
   n.custo_seguidor = get([/custo\s*por\s*seguidor[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
   n.retencao = get([/taxa\s*de\s*reten[cç][aã]o[^%\d\n]*([\d.,]+)\s*%?/i]);
@@ -642,15 +685,16 @@ function makePct(pct,label,color,bg){
 function makeBar(items,color){
   // items = [{label, value}]
   var max=Math.max.apply(null,items.map(function(x){return x.value;}));
-  var svgH=130, svgW=items.length*80+20;
-  var svg='<svg width="'+svgW+'" height="'+svgH+'" viewBox="0 0 '+svgW+' '+svgH+'" xmlns="http://www.w3.org/2000/svg">';
+  var svgH=140, svgW=items.length*80+20;
+  var svg='<svg width="100%" height="'+svgH+'" viewBox="0 0 '+svgW+' '+svgH+'" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="display:block">';
   items.forEach(function(item,i){
-    var barH=max>0?Math.round((item.value/max)*90):0;
-    var x=10+i*80, y=svgH-barH-30;
+    var barH=max>0?Math.round((item.value/max)*88):0;
+    var x=10+i*80, y=svgH-barH-34;
     var isFirst=i===0;
     svg+='<rect x="'+x+'" y="'+y+'" width="60" height="'+barH+'" rx="5" fill="'+color+'" opacity="'+(isFirst?'1':'0.55')+'"/>';
-    svg+='<text x="'+(x+30)+'" y="'+(y-6)+'" text-anchor="middle" font-size="11" font-weight="700" fill="'+(isFirst?color:'#666')+'">'+item.value.toLocaleString('pt-BR')+'</text>';
-    svg+='<text x="'+(x+30)+'" y="'+(svgH-10)+'" text-anchor="middle" font-size="10" fill="#888">'+item.label+'</text>';
+    // Keep labels inside the viewBox to avoid clipping in PDF renderers
+    svg+='<text x="'+(x+30)+'" y="'+Math.max(12,y-6)+'" text-anchor="middle" font-size="11" font-weight="700" fill="'+(isFirst?color:'#666')+'">'+item.value.toLocaleString('pt-BR')+'</text>';
+    svg+='<text x="'+(x+30)+'" y="'+(svgH-12)+'" text-anchor="middle" font-size="10" fill="#888">'+item.label+'</text>';
   });
   svg+='</svg>';
   return svg;
@@ -881,24 +925,42 @@ function buildPDF(){
   platBlocks += platSection(platTitle.toUpperCase(), platDot, row1, funnelChart + roasCard + convCard);
 
   // ── BLOCO(S) POR CAMPANHA (Vendas / Branding / etc), quando detectado ──
-  // blocks[0] é o consolidado (texto completo). A partir do índice 1 tentamos gerar cards/gráficos específicos.
+  // blocks[0] é o consolidado. Para evitar duplicidade poluída (ex.: dois BRANDING),
+  // escolhemos o melhor bloco por título com base em score de métricas úteis.
+  var bestByTitle = {};
   for(var bi=1;bi<blocks.length;bi++){
     var b = blocks[bi];
     if(!b || !b.text) continue;
     var bt = String(b.title||'').toUpperCase();
     if(bt.indexOf('COMPARATIVO')>=0) continue;
     var bn = extractNums(b.text);
-
-    // ignore blocks without meaningful metrics
-    var meaningful = bn.compras>0||bn.receita>0||bn.novos_seguidores>0||bn.visitas_perfil>0||bn.msgs>0||bn.cliques>0||bn.impressoes>0||bn.video_total>0;
-    if(!meaningful) continue;
-
-    // title heuristics
-    var title = (b.title||'CAMPANHA').toUpperCase();
-    // normalize common titles
-    title = title.replace(/^DE\s+/,'').replace(/[:]+$/,'').trim();
+    var title = (b.title||'CAMPANHA').toUpperCase().replace(/^DE\s+/,'').replace(/[:]+$/,'').trim();
     if(/SEGUIDORES\/BRANDING/.test(title) || /SEGUIDORES\s*\/\s*BRANDING/.test(title)) title = 'BRANDING';
     if(/BRANDING/.test(title) && !/VENDAS/.test(title)) title = 'BRANDING';
+
+    var score = 0;
+    if(bn.impressoes>0) score++;
+    if(bn.cliques>0) score++;
+    if(bn.visitas_lp>0 || bn.visitas_perfil>0) score++;
+    if(bn.novos_seguidores>0) score++;
+    if(bn.compras>0 || bn.receita>0) score++;
+    if(bn.video_total>0 || bn.video_3s>0) score++;
+    // Penalize suspicious blocks where impressions/clicks are tiny decimals from narrative
+    if(bn.impressoes>0 && bn.impressoes<10) score-=2;
+    if(bn.cliques>0 && bn.cliques<10) score-=1;
+
+    var curBest = bestByTitle[title];
+    if(!curBest || score>curBest.score){
+      bestByTitle[title] = {title:title, nums:bn, score:score};
+    }
+  }
+
+  Object.keys(bestByTitle).forEach(function(k){
+    var title = bestByTitle[k].title;
+    var bn = bestByTitle[k].nums;
+    // ignore blocks without meaningful metrics
+    var meaningful = bn.compras>0||bn.receita>0||bn.novos_seguidores>0||bn.visitas_perfil>0||bn.msgs>0||bn.cliques>0||bn.impressoes>0||bn.video_total>0;
+    if(!meaningful) return;
     var dot = /brand|segu/i.test(title) ? '#6366F1' : (/venda/i.test(title) ? '#3ecf8e' : C);
 
     // cards
@@ -969,7 +1031,7 @@ function buildPDF(){
     );
 
     platBlocks += platSection(title, dot, cardsRow, fun + perf + vol);
-  }
+  });
 
 
   // ── INSIGHTS ──
