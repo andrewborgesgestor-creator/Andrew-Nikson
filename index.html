@@ -469,6 +469,12 @@ function parsePtNumber(v){
     s = s.replace(/\./g,'').replace(',','.');
   } else if(hasComma && !hasDot){
     s = s.replace(',','.');
+  } else if(hasDot && !hasComma){
+    // Handle pt-BR thousands like "2.841" (2841) or "208.671" (208671)
+    // If it matches groups of 3 digits separated by dots, treat dots as thousands separators.
+    if(/^\-?\d{1,3}(\.\d{3})+$/.test(s)){
+      s = s.replace(/\./g,'');
+    }
   }
   var n = parseFloat(s);
   return isFinite(n) ? n : 0;
@@ -502,6 +508,11 @@ function splitMetricBlocks(allText){
   var campaignTitleRe = /^\s*(?:#{2,3}\s*)?campanha\s*[:\-]?\s*(.+)\s*$/i;
   lines.forEach(function(line){
     var l = (line||'').trim();
+    if(/^comparativo\b/i.test(l) || /^resultado\s+geral\b/i.test(l)){
+      pushCur();
+      cur = {title:'COMPARATIVO', text:''};
+      return;
+    }
     var m = l.match(campaignTitleRe);
     if(m){
       pushCur();
@@ -545,7 +556,8 @@ function extractNums(txt){
     }
     return 0;
   }
-  n.invest   = get([/investimento[^R\d\n]*R?\$?\s*([\d.,]+)/i,/custo\s*total[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  // Avoid grabbing values from "A → B" comparisons by excluding the arrow in the "between" span.
+  n.invest   = get([/investimento[^R\d\n→]*R?\$?\s*([\d.,]+)/i,/custo\s*total[^R\d\n→]*R?\$?\s*([\d.,]+)/i]);
   n.impressoes= get([/impress[oõ]es?[^\d\n]*([\d.,]+)/i]);
   n.cliques  = get([/cliques?[^\d\n]*([\d.,]+)/i]);
   n.ctr      = get([/ctr[^\d\n%]*([\d.,]+)/i]);
@@ -560,10 +572,17 @@ function extractNums(txt){
   n.retencao = get([/taxa\s*de\s*reten[cç][aã]o[^%\d\n]*([\d.,]+)\s*%?/i]);
   n.carrinho = get([/adi[cç][oõ]es?\s*ao\s*carrinho[^\d\n]*([\d.,]+)/i,/carrinho[^\d\n]*([\d.,]+)/i]);
   n.inicio_compra= get([/finaliza[cç][aã]o[^\d\n]*([\d.,]+)/i,/inicio\s*de\s*compra[^\d\n]*([\d.,]+)/i,/checkout[^\d\n]*([\d.,]+)/i]);
-  n.compras  = get([/compras?[^\d\n]*([\d.,]+)/i,/vendas?[^\d\n]*([\d.,]+)/i,/pedidos?[^\d\n]*([\d.,]+)/i]);
-  n.custo_compra= get([/custo\s*(?:por\s*)?compra[^R\d\n]*R?\$?\s*([\d.,]+)/i,/cpa[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  // Prefer explicit "Compras: 22" lines and avoid "Finalização de compras: 30"
+  n.compras  = get([
+    /(?:^|\n)\s*compras?\s*[:\-]?\s*([\d.,]+)/im,
+    /(?:^|\n)\s*(?:vendas?|pedidos?)\s*[:\-]?\s*([\d.,]+)/im,
+    /compras?(?![^\n]*finaliza)[^\d\n]*([\d.,]+)/i,
+    /vendas?[^\d\n]*([\d.,]+)/i,
+    /pedidos?[^\d\n]*([\d.,]+)/i
+  ]);
+  n.custo_compra= get([/custo\s*(?:por\s*)?compra[^R\d\n→]*R?\$?\s*([\d.,]+)/i,/cpa[^R\d\n→]*R?\$?\s*([\d.,]+)/i]);
   n.ticket   = get([/ticket\s*m[eé]dio[^R\d\n]*R?\$?\s*([\d.,]+)/i,/valor\s*m[eé]dio[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
-  n.receita  = get([/receita[^R\d\n]*R?\$?\s*([\d.,]+)/i,/faturamento[^R\d\n]*R?\$?\s*([\d.,]+)/i,/retorno[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.receita  = get([/receita[^R\d\n→]*R?\$?\s*([\d.,]+)/i,/faturamento[^R\d\n→]*R?\$?\s*([\d.,]+)/i,/retorno[^R\d\n→]*R?\$?\s*([\d.,]+)/i]);
   n.alcance  = get([/alcance[^\d\n]*([\d.,]+)/i]);
   n.msgs     = get([/mensagens?[^\d\n]*([\d.,]+)/i,/leads?[^\d\n]*([\d.,]+)/i]);
   n.engajamento= get([/engajamento[^%\d\n]*([\d.,]+)\s*%?/i]);
@@ -630,7 +649,8 @@ function makeFunnel(steps,color){
   var max=steps[0]?steps[0].value:1;
   var html='';
   steps.forEach(function(s,i){
-    var pct=Math.round((s.value/max)*100);
+    var pct=max>0?Math.round((s.value/max)*100):0;
+    pct=Math.max(0,Math.min(100,pct));
     var w=Math.max(30,pct);
     var opacity=1-(i*0.15);
     html+='<div style="margin-bottom:8px;text-align:center;">'
@@ -834,6 +854,8 @@ function buildPDF(){
   for(var bi=1;bi<blocks.length;bi++){
     var b = blocks[bi];
     if(!b || !b.text) continue;
+    var bt = String(b.title||'').toUpperCase();
+    if(bt.indexOf('COMPARATIVO')>=0) continue;
     var bn = extractNums(b.text);
 
     // ignore blocks without meaningful metrics
