@@ -359,26 +359,31 @@ function parseSections(text){
 // ── EXTRACT NUMBERS ──
 function extractNums(txt){
   var n={};
-  var pats=[
-    {k:'invest_meta',  r:/meta[^]*?(?:investimento|custo)[^R\d\n]*R?\$?\s*([\d.,]+)/i},
-    {k:'invest_google',r:/google[^]*?(?:investimento|custo)[^R\d\n]*R?\$?\s*([\d.,]+)/i},
-    {k:'invest_total', r:/(?:investimento|custo)\s*total[^R\d\n]*R?\$?\s*([\d.,]+)/i},
-    {k:'alcance',      r:/alcance[:\s]+([\d.,]+)/i},
-    {k:'impressoes',   r:/impress[oõ]es?[:\s]+([\d.,]+)/i},
-    {k:'cliques',      r:/cliques?[:\s]+([\d.,]+)/i},
-    {k:'msgs',         r:/(?:mensagens?|msgs?|convers[oõ]es?)[:\s]+([\d.,]+)/i},
-    {k:'ctr',          r:/ctr[:\s]+([\d.,]+)/i},
-    {k:'cpc',          r:/cpc[^R\d\n]*R?\$?\s*([\d.,]+)/i},
-    {k:'custo_msg',    r:/custo\/msg[^R\d\n]*R?\$?\s*([\d.,]+)/i},
-    {k:'seg_inicio',   r:/seguidores?[^→\n]*([\d.,]+)\s*→/i},
-    {k:'seg_fim',      r:/→\s*([\d.,]+)/},
-    {k:'engajamento',  r:/engajamento[^%\n]*([\d.,]+)\s*%/i},
-    {k:'views',        r:/(?:visualiza[cç][oõ]es?|views?)[:\s]+([\d.,]+)/i},
-  ];
-  pats.forEach(function(p){
-    var m=txt.match(p.r);
-    if(m){n[p.k]=parseFloat(m[1].replace(/\./g,'').replace(',','.'))||0;}
-  });
+  function get(patterns){
+    for(var i=0;i<patterns.length;i++){
+      var m=txt.match(patterns[i]);
+      if(m){return parseFloat(m[1].replace(/\./g,'').replace(',','.'))||0;}
+    }
+    return 0;
+  }
+  n.invest   = get([/investimento[^R\d\n]*R?\$?\s*([\d.,]+)/i,/custo\s*total[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.impressoes= get([/impress[oõ]es?[^\d\n]*([\d.,]+)/i]);
+  n.cliques  = get([/cliques?[^\d\n]*([\d.,]+)/i]);
+  n.ctr      = get([/ctr[^\d\n%]*([\d.,]+)/i]);
+  n.cpc      = get([/cpc[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.cpm      = get([/cpm[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.visitas_lp= get([/vistas?\s*p[aá]gina[^\d\n]*([\d.,]+)/i,/landing[^\d\n]*([\d.,]+)/i,/p[aá]gina\s*de\s*destino[^\d\n]*([\d.,]+)/i]);
+  n.carrinho = get([/adi[cç][oõ]es?\s*ao\s*carrinho[^\d\n]*([\d.,]+)/i,/carrinho[^\d\n]*([\d.,]+)/i]);
+  n.inicio_compra= get([/finaliza[cç][aã]o[^\d\n]*([\d.,]+)/i,/inicio\s*de\s*compra[^\d\n]*([\d.,]+)/i,/checkout[^\d\n]*([\d.,]+)/i]);
+  n.compras  = get([/compras?[^\d\n]*([\d.,]+)/i,/vendas?[^\d\n]*([\d.,]+)/i,/pedidos?[^\d\n]*([\d.,]+)/i]);
+  n.custo_compra= get([/custo\s*(?:por\s*)?compra[^R\d\n]*R?\$?\s*([\d.,]+)/i,/cpa[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.ticket   = get([/ticket\s*m[eé]dio[^R\d\n]*R?\$?\s*([\d.,]+)/i,/valor\s*m[eé]dio[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.receita  = get([/receita[^R\d\n]*R?\$?\s*([\d.,]+)/i,/faturamento[^R\d\n]*R?\$?\s*([\d.,]+)/i,/retorno[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.alcance  = get([/alcance[^\d\n]*([\d.,]+)/i]);
+  n.msgs     = get([/mensagens?[^\d\n]*([\d.,]+)/i,/leads?[^\d\n]*([\d.,]+)/i]);
+  n.engajamento= get([/engajamento[^%\d\n]*([\d.,]+)\s*%?/i]);
+  n.roas     = n.invest>0&&n.receita>0 ? Math.round((n.receita/n.invest)*100)/100 : 0;
+  n.lucro    = n.receita>0&&n.invest>0 ? Math.round((n.receita-n.invest)*100)/100 : 0;
   return n;
 }
 
@@ -460,13 +465,17 @@ function buildPDF(){
   var secs = parseSections(rawResume);
 
   // ── INVEST DISPLAY ──
-  var investTotal = invest
-    ? 'R$ '+parseFloat(invest).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-    : (nums.invest_total>0 ? 'R$ '+nums.invest_total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—');
-
-  var totalMsgs  = nums.msgs>0  ? nums.msgs  : '—';
-  var totalClic  = nums.cliques>0? nums.cliques: '—';
-  var totalImp   = nums.impressoes>0?nums.impressoes:'—';
+  var investFinal = invest && parseFloat(invest)>0
+    ? parseFloat(invest)
+    : nums.invest;
+  function fmt(v,prefix,decimals){
+    if(!v||v===0) return '—';
+    prefix=prefix||''; decimals=decimals!==undefined?decimals:2;
+    return prefix+v.toLocaleString('pt-BR',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+  }
+  var investTotal = fmt(investFinal,'R$ ');
+  var roasVal     = nums.roas>0 ? nums.roas.toFixed(2).replace('.',',')+'x' : (investFinal>0&&nums.receita>0?(nums.receita/investFinal).toFixed(2).replace('.',',')+'x':'—');
+  var lucroVal    = nums.lucro!==0 ? fmt(nums.lucro,'R$ ') : (investFinal>0&&nums.receita>0?fmt(nums.receita-investFinal,'R$ '):'—');
 
   // ── TOP KPI CARDS (3 col like Lumi) ──
   function kpiBlock(emoji,label,value,sub,highlight){
@@ -514,120 +523,119 @@ function buildPDF(){
   // ── BUILD PLATFORM BLOCKS ──
   var platBlocks = '';
 
-  if(selPlats.indexOf('Meta Ads')>=0){
-    var metaInvest = nums.invest_meta>0 ? 'R$ '+nums.invest_meta.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
-    var metaAlc    = nums.alcance>0 ? nums.alcance.toLocaleString('pt-BR') : '—';
-    var metaMsgs   = nums.msgs>0 ? nums.msgs.toLocaleString('pt-BR') : '—';
-    var metaCMsg   = nums.custo_msg>0 ? 'R$ '+nums.custo_msg.toFixed(2).replace('.',',') : '—';
-    var metaImp    = nums.impressoes>0 ? nums.impressoes.toLocaleString('pt-BR') : '—';
-    var metaClic   = nums.cliques>0 ? nums.cliques.toLocaleString('pt-BR') : '—';
-    var metaCTR    = nums.ctr>0 ? nums.ctr.toFixed(2).replace('.',',')+'%' : '—';
-    var metaCPC    = nums.cpc>0 ? 'R$ '+nums.cpc.toFixed(2).replace('.',',') : '—';
+  // Helper: format number or return dash
+  function fmtN(v,pre,dec){
+    if(!v||v===0) return '—';
+    pre=pre||''; dec=(dec!==undefined)?dec:0;
+    return pre+v.toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+  }
 
-    var alcImp = '';
-    if(nums.alcance>0&&nums.impressoes>0){
-      alcImp = chartCard('Alcance vs Impressões',
-        makeBar([{label:'Alcance',value:nums.alcance},{label:'Impressões',value:nums.impressoes}],C)
-      );
-    } else {
-      alcImp = chartCard('Alcance vs Impressões','<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Dados não informados</div>');
-    }
+  // ── BLOCO CONSOLIDADO (sempre mostra) ──
+  var hasEcomm = nums.compras>0||nums.receita>0||nums.carrinho>0;
+  var hasTraff = nums.impressoes>0||nums.cliques>0;
 
-    var convChart = '';
-    if(nums.cliques>0&&nums.msgs>0){
-      convChart = chartCard('Conversão (Cliques → Msgs)',
-        '<div style="padding:10px 0;text-align:center;">'
-        +'<div style="display:flex;justify-content:space-around;align-items:flex-end;">'
-        +'<div style="text-align:center;">'
-        +'<div style="font-size:28px;font-weight:800;color:#555;">'+nums.cliques.toLocaleString('pt-BR')+'</div>'
-        +'<div style="font-size:11px;color:#aaa;margin-top:4px;">Cliques</div>'
-        +'</div>'
-        +'<div style="font-size:24px;color:'+C+';align-self:center;">→</div>'
-        +'<div style="text-align:center;">'
-        +'<div style="font-size:28px;font-weight:800;color:'+C+';">'+nums.msgs.toLocaleString('pt-BR')+'</div>'
-        +'<div style="font-size:11px;color:'+C+';margin-top:4px;">Msgs</div>'
-        +'</div></div>'
-        +'<div style="margin-top:12px;font-size:11px;color:#888;">Taxa de conversão: '+Math.round((nums.msgs/nums.cliques)*100)+'%</div>'
-        +'</div>'
-      );
-    } else {
-      convChart = chartCard('Conversão (Cliques → Msgs)','<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Dados não informados</div>');
-    }
+  // Métricas principais cards
+  var mainCards = [];
+  if(investFinal>0)      mainCards.push(mcard('💰','Investimento',fmt(investFinal,'R$ '),''));
+  if(nums.impressoes>0)  mainCards.push(mcard('📊','Impressões',fmtN(nums.impressoes),''));
+  if(nums.cliques>0)     mainCards.push(mcard('🖱','Cliques',fmtN(nums.cliques),''));
+  if(nums.ctr>0)         mainCards.push(mcard('📈','CTR',nums.ctr.toFixed(2).replace('.',',')+'%',''));
+  if(nums.cpc>0)         mainCards.push(mcard('💲','CPC',fmt(nums.cpc,'R$ '),''));
+  if(nums.cpm>0)         mainCards.push(mcard('📉','CPM Médio',fmt(nums.cpm,'R$ '),''));
+  if(nums.visitas_lp>0)  mainCards.push(mcard('🌐','Visitas LP',fmtN(nums.visitas_lp),''));
+  if(nums.alcance>0)     mainCards.push(mcard('👀','Alcance',fmtN(nums.alcance),''));
+  if(nums.msgs>0)        mainCards.push(mcard('💬','Mensagens/Leads',fmtN(nums.msgs),'',true));
 
-    var cpcCard = chartCard('Custo por Resultado',
+  // Ecommerce cards
+  if(nums.carrinho>0)      mainCards.push(mcard('🛒','Add ao Carrinho',fmtN(nums.carrinho),''));
+  if(nums.inicio_compra>0) mainCards.push(mcard('💳','Início de Compra',fmtN(nums.inicio_compra),''));
+  if(nums.compras>0)       mainCards.push(mcard('✅','Compras',fmtN(nums.compras),'KPI Principal',true));
+  if(nums.custo_compra>0)  mainCards.push(mcard('💵','Custo/Compra',fmt(nums.custo_compra,'R$ '),''));
+  if(nums.ticket>0)        mainCards.push(mcard('🏷','Ticket Médio',fmt(nums.ticket,'R$ '),''));
+  if(nums.receita>0)       mainCards.push(mcard('💹','Receita',fmt(nums.receita,'R$ '),'',true));
+
+  // Limit to 8 for layout
+  var row1 = mainCards.slice(0,8);
+
+  // ── FUNIL DE CONVERSÃO ──
+  var funnelSteps = [];
+  if(nums.impressoes>0)    funnelSteps.push({label:'Impressões',value:nums.impressoes});
+  if(nums.cliques>0)       funnelSteps.push({label:'Cliques',value:nums.cliques});
+  if(nums.visitas_lp>0)    funnelSteps.push({label:'Visitas LP',value:nums.visitas_lp});
+  if(nums.carrinho>0)      funnelSteps.push({label:'Add Carrinho',value:nums.carrinho});
+  if(nums.inicio_compra>0) funnelSteps.push({label:'Início Compra',value:nums.inicio_compra});
+  if(nums.compras>0)       funnelSteps.push({label:'Compras ✓',value:nums.compras});
+  else if(nums.msgs>0)     funnelSteps.push({label:'Conversões',value:nums.msgs});
+
+  var funnelChart = chartCard('Funil de Conversão',
+    funnelSteps.length>1
+      ? '<div style="padding:6px 0;">'+makeFunnel(funnelSteps,C)+'</div>'
+      : '<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Informe os dados do funil</div>'
+  );
+
+  // ── ROAS / RESULTADO ──
+  var roasCard = '';
+  if(nums.receita>0&&investFinal>0){
+    var roasNum = nums.receita/investFinal;
+    var lucroNum = nums.receita-investFinal;
+    roasCard = chartCard('ROAS & Resultado',
       '<div style="text-align:center;padding:8px 0;">'
-      +'<div style="font-size:11px;color:#aaa;margin-bottom:4px;">Custo por Mensagem</div>'
-      +'<div style="font-size:36px;font-weight:900;color:'+C+';">'+metaCMsg+'</div>'
-      +(metaCMsg!=='—'?'<div style="font-size:11px;color:#888;margin-top:6px;">Principal resultado</div>':'')
-      +'</div>'
+      +'<div style="font-size:38px;font-weight:900;color:'+C+';">'+roasNum.toFixed(2).replace('.',',')+'x</div>'
+      +'<div style="font-size:11px;color:#888;margin-top:4px;">Retorno sobre investimento</div>'
+      +(roasNum>=1?'<div style="display:inline-block;margin-top:8px;background:rgba(62,207,142,.15);border:1px solid rgba(62,207,142,.4);color:#1a8a5a;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;">✓ Campanha positiva</div>':'')
+      +'<div style="margin-top:14px;border-top:1px solid #eee;padding-top:12px;text-align:left;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;"><span style="color:#888">Investido</span><span style="font-weight:700">'+fmt(investFinal,'R$ ')+'</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;"><span style="color:#888">Receita</span><span style="font-weight:700;color:#3ecf8e">'+fmt(nums.receita,'R$ ')+'</span></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;border-top:1px solid #eee;padding-top:5px;"><span style="color:#888">Resultado</span><span style="font-weight:800;color:'+(lucroNum>=0?'#3ecf8e':'#e55353')+'">'+fmt(lucroNum,'R$ ')+'</span></div>'
+      +'</div></div>'
     );
-
-    platBlocks += platSection(
-      'META ADS (Facebook &amp; Instagram)', '#0866FF',
-      [
-        mcard('💰','Investimento',metaInvest,''),
-        mcard('👀','Alcance',metaAlc,''),
-        mcard('💬','Mensagens',metaMsgs,'Principal Resultado',true),
-        mcard('💵','Custo/Msg',metaCMsg,''),
-        mcard('📊','Impressões',metaImp,''),
-        mcard('🖱','Cliques',metaClic,''),
-        mcard('📈','CTR',metaCTR,''),
-        mcard('💲','CPC',metaCPC,''),
-      ],
-      alcImp + convChart + cpcCard
-    );
-  }
-
-  if(selPlats.indexOf('Google Ads')>=0){
-    var gInvest = nums.invest_google>0 ? 'R$ '+nums.invest_google.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
-    var gImp    = nums.impressoes>0&&selPlats.indexOf('Meta Ads')<0 ? nums.impressoes.toLocaleString('pt-BR') : '—';
-    var gClic   = nums.cliques>0&&selPlats.indexOf('Meta Ads')<0 ? nums.cliques.toLocaleString('pt-BR') : '—';
-    var gMsgs   = nums.msgs>0&&selPlats.indexOf('Meta Ads')<0 ? nums.msgs.toLocaleString('pt-BR') : '—';
-    var gCPC    = nums.cpc>0&&selPlats.indexOf('Meta Ads')<0 ? 'R$ '+nums.cpc.toFixed(2).replace('.',',') : '—';
-
-    // funil
-    var funnelItems=[];
-    if(nums.impressoes>0&&selPlats.indexOf('Meta Ads')<0) funnelItems.push({label:'Impressões',value:nums.impressoes});
-    if(nums.cliques>0&&selPlats.indexOf('Meta Ads')<0) funnelItems.push({label:'Cliques',value:nums.cliques});
-    if(nums.msgs>0&&selPlats.indexOf('Meta Ads')<0) funnelItems.push({label:'Conversões',value:nums.msgs});
-
-    var funnelChart = chartCard('Funil de Tráfego Google',
-      funnelItems.length>0
-        ? '<div style="padding:8px 0;">'+makeFunnel(funnelItems,C)+'</div>'
-        : '<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Preencha impressões, cliques e conversões</div>'
-    );
-
-    var cpcBlock = chartCard('Custo por Clique (CPC)',
+  } else if(nums.cpc>0){
+    roasCard = chartCard('Custo por Clique',
       '<div style="text-align:center;padding:10px 0;">'
-      +'<div style="font-size:40px;font-weight:900;color:'+C+';">'+gCPC+'</div>'
-      +(gCPC!=='—'&&parseFloat(gCPC.replace('R$ ','').replace(',','.'))<1?'<div style="font-size:12px;color:#3ecf8e;margin-top:8px;font-weight:600;">✓ Altamente eficiente</div>':'')
+      +'<div style="font-size:38px;font-weight:900;color:'+C+';">'+fmt(nums.cpc,'R$ ')+'</div>'
+      +(nums.cpc<1?'<div style="font-size:12px;color:#3ecf8e;margin-top:8px;font-weight:600;">✓ CPC eficiente</div>':'')
       +'</div>'
     );
+  } else {
+    roasCard = chartCard('Métricas','<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Informe receita para calcular ROAS</div>');
+  }
 
-    platBlocks += platSection(
-      'GOOGLE ADS (Rede de Pesquisa)', '#34A853',
-      [
-        mcard('💰','Investimento',gInvest,''),
-        mcard('📊','Impressões',gImp,''),
-        mcard('🖱','Cliques',gClic,'Alto Volume',gClic!=='—'),
-        mcard('💲','CPC',gCPC,'Excelente custo',true),
-      ],
-      funnelChart + cpcBlock + chartCard('Plataforma','<div style="text-align:center;padding:12px 0;"><div style="font-size:13px;color:#555;">Rede de Pesquisa Google</div><div style="margin-top:12px;font-size:11px;color:#aaa;">Usuários com intenção de compra</div></div>')
+  // ── COMPRAS vs CARRINHO ──
+  var convCard = '';
+  if(nums.compras>0&&nums.carrinho>0){
+    var taxaConv = Math.round((nums.compras/nums.carrinho)*100);
+    convCard = chartCard('Conversão do Carrinho',
+      '<div style="padding:10px 0;text-align:center;">'
+      +'<div style="display:flex;justify-content:space-around;align-items:flex-end;margin-bottom:12px;">'
+      +'<div style="text-align:center;"><div style="font-size:26px;font-weight:800;color:#888;">'+fmtN(nums.carrinho)+'</div><div style="font-size:10px;color:#aaa;margin-top:3px;">Carrinhos</div></div>'
+      +'<div style="font-size:20px;color:'+C+';align-self:center;">→</div>'
+      +'<div style="text-align:center;"><div style="font-size:26px;font-weight:800;color:'+C+';">'+fmtN(nums.compras)+'</div><div style="font-size:10px;color:'+C+';margin-top:3px;">Compras</div></div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:#888;">Taxa de conversão: <strong style="color:'+C+'">'+taxaConv+'%</strong></div>'
+      +'</div>'
+    );
+  } else if(nums.cliques>0&&nums.compras>0){
+    convCard = chartCard('Cliques → Compras',
+      '<div style="padding:10px 0;text-align:center;">'
+      +'<div style="font-size:24px;font-weight:800;color:#555;">'+fmtN(nums.cliques)+'</div><div style="font-size:10px;color:#aaa;">Cliques</div>'
+      +'<div style="font-size:20px;color:'+C+';margin:8px 0;">↓</div>'
+      +'<div style="font-size:24px;font-weight:800;color:'+C+';">'+fmtN(nums.compras)+'</div><div style="font-size:10px;color:'+C+';">Compras</div>'
+      +'</div>'
+    );
+  } else {
+    convCard = chartCard('Volume de Tráfego',
+      nums.impressoes>0&&nums.cliques>0
+      ? makeBar([{label:'Impressões',value:nums.impressoes},{label:'Cliques',value:nums.cliques}].concat(nums.visitas_lp>0?[{label:'Visitas LP',value:nums.visitas_lp}]:[]),C)
+      : '<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Dados não informados</div>'
     );
   }
 
-  // Outros canais genéricos
-  selPlats.filter(function(p){return p!=='Meta Ads'&&p!=='Google Ads';}).forEach(function(plat){
-    platBlocks += platSection(
-      plat.toUpperCase(), C,
-      [
-        mcard('📊','Impressões','—',''),
-        mcard('🖱','Cliques/Alcance','—',''),
-        mcard('💬','Conversões','—','',true),
-        mcard('💲','CPC/CPR','—',''),
-      ],''
-    );
-  });
+  // Determine title based on platforms selected
+  var platTitle = selPlats.length>0 ? selPlats.join(' + ') : 'Consolidado';
+  var platDot   = selPlats.indexOf('Meta Ads')>=0 ? '#0866FF' : (selPlats.indexOf('Google Ads')>=0 ? '#34A853' : C);
+
+  platBlocks += platSection(platTitle.toUpperCase(), platDot, row1, funnelChart + roasCard + convCard);
+
 
   // ── INSIGHTS ──
   var insightSecs = parseSections(rawResume);
