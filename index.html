@@ -316,6 +316,14 @@ function limitLines(text, maxLines){
 function enforceResumoSize(text, maxLines){
   var secs = parseSections(text||'');
   if(!secs || !Object.keys(secs).length) return text;
+  // Normalize model naming to match your preference
+  Object.keys(secs).forEach(function(k){
+    secs[k] = String(secs[k])
+      .replace(/metaverso\s*\/\s*branding/gi,'Branding')
+      .replace(/meta\s*ads\s*[-–]\s*branding/gi,'Branding')
+      .replace(/meta\s*ads\s*[-–]\s*vendas/gi,'Vendas')
+      .replace(/metaverso/gi,'Meta');
+  });
   var key = 'VISÃO GERAL DO PERÍODO';
   if(secs[key]){
     secs[key] = limitLines(secs[key], maxLines);
@@ -390,6 +398,7 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
    +'- Use SOMENTE as métricas fornecidas em MÉTRICAS. Não invente, não estime, não complete lacunas.\n'
    +'- Se algo não estiver presente nas métricas, escreva \"não informado\".\n'
    +'- Se houver mais de uma campanha (ex.: Vendas e Branding/Seguidores), NÃO misture os números: cite cada uma separadamente quando possível.\n'
+   +'- Use os nomes exatamente assim (sem inventar): \"Vendas\" e \"Branding\". Não escreva \"Metaverso/Branding\".\n'
    +'- Seja breve: cada seção deve ter no máximo 4-6 frases curtas.\n\n'
    +'DADOS:\n'
    +'- Cliente: '+nome+(seg?' ('+seg+')':'')+'\n'
@@ -513,6 +522,12 @@ function splitMetricBlocks(allText){
       cur = {title:'COMPARATIVO', text:''};
       return;
     }
+    if(/^an[aá]lise\s+do\s+funil\b/i.test(l) || /^principais\s+melhorias\b/i.test(l) || /^leitura\s+das\s+taxas\b/i.test(l)){
+      // treat as part of comparativo/diagnóstico block to avoid contaminating campaign blocks
+      pushCur();
+      cur = {title:'COMPARATIVO', text:''};
+      return;
+    }
     var m = l.match(campaignTitleRe);
     if(m){
       pushCur();
@@ -556,6 +571,22 @@ function extractNums(txt){
     }
     return 0;
   }
+  function getInt(patterns){
+    for(var i=0;i<patterns.length;i++){
+      var re = patterns[i];
+      // iterate line-by-line so we can avoid cross-line false matches
+      var lines = String(txt||'').replace(/\r\n/g,'\n').split('\n');
+      for(var li=0;li<lines.length;li++){
+        var line = lines[li];
+        var m = line.match(re);
+        if(m){
+          var v = parsePtNumber(m[1]);
+          if(v>0) return Math.round(v);
+        }
+      }
+    }
+    return 0;
+  }
   // Avoid grabbing values from "A → B" comparisons by excluding the arrow in the "between" span.
   n.invest   = get([/investimento[^R\d\n→]*R?\$?\s*([\d.,]+)/i,/custo\s*total[^R\d\n→]*R?\$?\s*([\d.,]+)/i]);
   n.impressoes= get([/impress[oõ]es?[^\d\n]*([\d.,]+)/i]);
@@ -573,12 +604,12 @@ function extractNums(txt){
   n.carrinho = get([/adi[cç][oõ]es?\s*ao\s*carrinho[^\d\n]*([\d.,]+)/i,/carrinho[^\d\n]*([\d.,]+)/i]);
   n.inicio_compra= get([/finaliza[cç][aã]o[^\d\n]*([\d.,]+)/i,/inicio\s*de\s*compra[^\d\n]*([\d.,]+)/i,/checkout[^\d\n]*([\d.,]+)/i]);
   // Prefer explicit "Compras: 22" lines and avoid "Finalização de compras: 30"
-  n.compras  = get([
-    /(?:^|\n)\s*compras?\s*[:\-]?\s*([\d.,]+)/im,
-    /(?:^|\n)\s*(?:vendas?|pedidos?)\s*[:\-]?\s*([\d.,]+)/im,
-    /compras?(?![^\n]*finaliza)[^\d\n]*([\d.,]+)/i,
-    /vendas?[^\d\n]*([\d.,]+)/i,
-    /pedidos?[^\d\n]*([\d.,]+)/i
+  n.compras  = getInt([
+    // "Compras: 22" (plural only; avoids matching "custo por compra")
+    /^\s*compras\s*[:\-]\s*([\d.,]+)\s*$/i,
+    // "Vendas: 22" (avoid comparisons with arrow)
+    /^\s*vendas\s*[:\-]\s*([\d.,]+)\s*$/i,
+    /^\s*pedidos\s*[:\-]\s*([\d.,]+)\s*$/i
   ]);
   n.custo_compra= get([/custo\s*(?:por\s*)?compra[^R\d\n→]*R?\$?\s*([\d.,]+)/i,/cpa[^R\d\n→]*R?\$?\s*([\d.,]+)/i]);
   n.ticket   = get([/ticket\s*m[eé]dio[^R\d\n]*R?\$?\s*([\d.,]+)/i,/valor\s*m[eé]dio[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
@@ -864,6 +895,10 @@ function buildPDF(){
 
     // title heuristics
     var title = (b.title||'CAMPANHA').toUpperCase();
+    // normalize common titles
+    title = title.replace(/^DE\s+/,'').replace(/[:]+$/,'').trim();
+    if(/SEGUIDORES\/BRANDING/.test(title) || /SEGUIDORES\s*\/\s*BRANDING/.test(title)) title = 'BRANDING';
+    if(/BRANDING/.test(title) && !/VENDAS/.test(title)) title = 'BRANDING';
     var dot = /brand|segu/i.test(title) ? '#6366F1' : (/venda/i.test(title) ? '#3ecf8e' : C);
 
     // cards
