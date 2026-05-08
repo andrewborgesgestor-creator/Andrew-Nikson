@@ -229,11 +229,15 @@ Cole do jeito que vier — a IA entende qualquer formato."></textarea>
       </div>
       <span class="result-badge">✓ Resumo gerado</span>
     </div>
-    <div class="result-box" id="rText"></div>
+    <textarea class="result-box" id="rTextEditor" style="width:100%;min-height:320px;resize:vertical;"></textarea>
     <div class="btn-row">
-      <button class="btn btn-green" id="btnPDF">
+      <button class="btn btn-green" id="btnPDFDirect">
         <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Baixar Dashboard
+        Baixar PDF Direto
+      </button>
+      <button class="btn btn-outline" id="btnHTML">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Baixar HTML Editável
       </button>
       <button class="btn btn-outline" id="btnNovo">
         <svg viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 013 8m0 0l2-2m-2 2l-2-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -254,6 +258,7 @@ Cole do jeito que vier — a IA entende qualquer formato."></textarea>
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 var selPlats = [];
 var rawResume = '';
@@ -386,6 +391,13 @@ function cleanMarkdownArtifacts(text){
   return t.trim();
 }
 
+function syncResumeFromEditor(){
+  var ed = document.getElementById('rTextEditor');
+  if(!ed) return;
+  var txt = String(ed.value||'').trim();
+  if(txt) rawResume = cleanMarkdownArtifacts(txt);
+}
+
 // ── COLOR SWATCHES ──
 updateResumoLinhasUI();
 var resumoLinhasEl = document.getElementById('resumoLinhas');
@@ -489,7 +501,7 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
 
     document.getElementById('rTitle').textContent=nome+' — '+periodo;
     document.getElementById('rSub').textContent='Resumo gerado por IA · Responsável: '+resp;
-    document.getElementById('rText').textContent=rawResume;
+    document.getElementById('rTextEditor').value=rawResume;
     document.getElementById('resultWrap').className='result-wrap show';
     document.getElementById('resultWrap').scrollIntoView({behavior:'smooth',block:'start'});
   }catch(e){
@@ -503,6 +515,8 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
 // ── NOVO ──
 document.getElementById('btnNovo').addEventListener('click',function(){
   rawResume='';
+  var ed = document.getElementById('rTextEditor');
+  if(ed) ed.value='';
   document.getElementById('resultWrap').className='result-wrap';
   document.getElementById('errBox').className='err';
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1227,9 +1241,10 @@ function buildPDF(){
   return html;
 }
 
-// ── DOWNLOAD HTML (abre como página para imprimir/salvar PDF) ──
-document.getElementById('btnPDF').addEventListener('click', function(){
+// ── DOWNLOAD HTML EDITÁVEL ──
+document.getElementById('btnHTML').addEventListener('click', function(){
   if(!rawResume){alert('Gere o resumo primeiro.');return;}
+  syncResumeFromEditor();
 
   var btn  = this;
   var nome    = document.getElementById('nome').value.trim();
@@ -1256,7 +1271,7 @@ document.getElementById('btnPDF').addEventListener('click', function(){
     }, 1000);
 
     btn.disabled = false;
-    btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" style="width:16px;height:16px;vertical-align:middle"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Baixar PDF com Dashboard';
+    btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" style="width:16px;height:16px;vertical-align:middle"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Baixar HTML Editável';
 
     // Mostra instrução
     var tip = document.getElementById('pdfTip');
@@ -1264,8 +1279,66 @@ document.getElementById('btnPDF').addEventListener('click', function(){
 
   } catch(e) {
     btn.disabled = false;
-    btn.textContent = 'Baixar PDF com Dashboard';
+    btn.textContent = 'Baixar HTML Editável';
     alert('Erro ao gerar arquivo: ' + e.message);
+  }
+});
+
+// ── DOWNLOAD PDF DIRETO ──
+document.getElementById('btnPDFDirect').addEventListener('click', function(){
+  if(!rawResume){alert('Gere o resumo primeiro.');return;}
+  syncResumeFromEditor();
+  if(typeof html2pdf === 'undefined'){
+    alert('Biblioteca de PDF não carregada. Tente atualizar a página.');
+    return;
+  }
+
+  var btn = this;
+  var nome = document.getElementById('nome').value.trim();
+  var periodo = document.getElementById('periodo').value.trim();
+  var html = buildPDF();
+  var fname = 'Relatorio_Inpactum_' + nome.replace(/\s+/g,'_') + '_' + periodo.replace(/[\/\s]/g,'-') + '.pdf';
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Gerando PDF...';
+  try{
+    var holder = document.createElement('div');
+    holder.style.position = 'fixed';
+    holder.style.left = '-99999px';
+    holder.style.top = '0';
+    holder.style.width = '794px'; // ~A4 width in px
+    holder.innerHTML = html;
+    var content = holder.querySelector('body') || holder;
+    document.body.appendChild(holder);
+
+    var opt = {
+      margin: [6,6,6,6],
+      filename: fname,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css','legacy'] }
+    };
+
+    html2pdf().set(opt).from(content).save().then(function(){
+      document.body.removeChild(holder);
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" style="width:16px;height:16px;vertical-align:middle"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Baixar PDF Direto';
+      var tip = document.getElementById('pdfTip');
+      if(tip){
+        tip.style.display = 'block';
+        tip.querySelector('div').textContent = '✅ PDF baixado com sucesso!';
+      }
+    }).catch(function(err){
+      if(holder.parentNode) document.body.removeChild(holder);
+      btn.disabled = false;
+      btn.textContent = 'Baixar PDF Direto';
+      alert('Erro ao gerar PDF: ' + err.message);
+    });
+  }catch(e){
+    btn.disabled = false;
+    btn.textContent = 'Baixar PDF Direto';
+    alert('Erro ao gerar PDF: ' + e.message);
   }
 });
 </script>
