@@ -358,7 +358,7 @@ function enforceResumoSize(text, maxLines){
     secs[key] = limitLines(secs[key], maxLines);
   }
   // Rebuild in the same order used elsewhere
-  var secOrder = ['VISÃO GERAL DO PERÍODO','DESTAQUES DE PERFORMANCE','ANÁLISE DAS PLATAFORMAS','PONTOS DE ATENÇÃO','PRÓXIMOS PASSOS','MENSAGEM FINAL'];
+  var secOrder = ['VISÃO GERAL DO PERÍODO','DESTAQUES DE PERFORMANCE','ANÁLISE DAS PLATAFORMAS','PONTOS DE ATENÇÃO','PRÓXIMOS PASSOS'];
   var out = '';
   secOrder.forEach(function(k){
     if(!secs[k]) return;
@@ -472,9 +472,7 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
    +'2-4 frases construtivas com sugestão prática.\n\n'
    +'[PRÓXIMOS PASSOS]\n'
    +'3-5 ações curtas, bem objetivas.\n\n'
-   +'[MENSAGEM FINAL]\n'
-   +'2-4 frases. Mencione o cliente. Assine: '+resp+' — Inpactum Digital.\n\n'
-   +'Tom: parceiro estratégico, consultivo. Evite texto longo e repetitivo.';
+   +'Tom: parceiro estratégico, consultivo. Português correto (ortografia e concordância), sem redundância e sem repetir informações já explicadas.';
 
   try{
     var res = await fetch('/api/generate',{
@@ -949,7 +947,7 @@ function buildPDF(){
   }
 
   // Determine title based on platforms selected
-  var platTitle = selPlats.length>0 ? selPlats.join(' + ') : 'Consolidado';
+  var platTitle = selPlats.length>0 ? selPlats.join(' + ') : 'Visão Geral de Métricas';
   var platDot   = selPlats.indexOf('Meta Ads')>=0 ? '#0866FF' : (selPlats.indexOf('Google Ads')>=0 ? '#34A853' : C);
 
   platBlocks += platSection(platTitle.toUpperCase(), platDot, row1, funnelChart + roasCard + convCard);
@@ -1096,8 +1094,8 @@ function buildPDF(){
   }
 
   // ── RESUMO POR SECTIONS ──
-  var secOrder = ['VISÃO GERAL DO PERÍODO','DESTAQUES DE PERFORMANCE','ANÁLISE DAS PLATAFORMAS','PONTOS DE ATENÇÃO','PRÓXIMOS PASSOS','MENSAGEM FINAL'];
-  var secColors = ['#FF5C1A','#f59e0b',C,'#e55353','#3ecf8e',C];
+  var secOrder = ['VISÃO GERAL DO PERÍODO','DESTAQUES DE PERFORMANCE','ANÁLISE DAS PLATAFORMAS','PONTOS DE ATENÇÃO','PRÓXIMOS PASSOS'];
+  var secColors = ['#FF5C1A','#f59e0b',C,'#e55353','#3ecf8e'];
   var sectionsHTML='';
   secOrder.forEach(function(sec,idx){
     var body=secs[sec];
@@ -1106,9 +1104,9 @@ function buildPDF(){
     sectionsHTML+='<div style="margin-bottom:20px;page-break-inside:avoid;">'
       +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
       +'<div style="width:4px;height:16px;background:'+col+';border-radius:2px;flex-shrink:0;"></div>'
-      +'<div style="font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:'+col+';">'+sec+'</div>'
+      +'<div class="syne" style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:'+col+';">'+sec+'</div>'
       +'</div>'
-      +'<div style="background:#fafafa;border:1px solid #eee;border-left:3px solid '+col+';border-radius:0 8px 8px 0;padding:16px 18px;font-size:13px;line-height:1.85;color:#333;">'
+      +'<div style="background:#fdfdfd;border:1px solid #eee;border-left:3px solid '+col+';border-radius:0 8px 8px 0;padding:16px 18px;font-family:Manrope,Inter,Arial,sans-serif;font-size:14px;font-weight:500;line-height:1.9;color:#2d2d2d;">'
       +body.replace(/\n\n/g,'</p><p style="margin-top:8px">').replace(/\n/g,'<br/>')
       +'</div></div>';
   });
@@ -1153,8 +1151,8 @@ function buildPDF(){
     +'<meta name="viewport" content="width=device-width,initial-scale=1.0"/>'
     +'<link rel="preconnect" href="https://fonts.googleapis.com">'
     +'<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-    +'<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">'
-    +'<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Inter,Arial,Helvetica,sans-serif;background:#f5f5f5;} .syne{font-family:Syne,Inter,Arial,sans-serif;}</style>'
+    +'<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Inter,Arial,Helvetica,sans-serif;background:#f5f5f5;} .syne{font-family:Syne,Inter,Arial,sans-serif;} .resumo-title{font-family:Syne,Inter,Arial,sans-serif;} .resumo-body{font-family:Manrope,Inter,Arial,sans-serif;}</style>'
     +'</head><body>'
 
     // ── CAPA HEADER ──
@@ -1177,24 +1175,29 @@ function buildPDF(){
     + kpiBlock('🖱','TOTAL DE CLIQUES',fmtNum(totalClic),'Todos os canais',true)
     +'</div>'
 
-    // ── PLATFORM BLOCKS ──
-    +'<div style="padding:24px 32px;">'
-    + platBlocks
-
-    // ── ANÁLISE E INSIGHTS ──
+    // ── ANÁLISE GERAL (NO INÍCIO) ──
     +'<div style="margin-bottom:24px;">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">'
     +'<div style="font-size:18px;">💡</div>'
-    +'<div class="syne" style="font-size:16px;font-weight:800;color:#111;letter-spacing:-.2px;">ANÁLISE GERAL &amp; INSIGHTS</div>'
+    +'<div class="syne" style="font-size:18px;font-weight:800;color:#111;letter-spacing:-.2px;">ANÁLISE GERAL</div>'
     +'</div>'
     + insightsHTML
     +'</div>'
 
-    // ── RESUMO TEXTUAL COMPLETO ──
+    // ── DASHBOARDS / GRÁFICOS ──
+    +'<div style="margin-bottom:24px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">'
+    +'<div style="font-size:18px;">📊</div>'
+    +'<div class="syne" style="font-size:18px;font-weight:800;color:#111;letter-spacing:-.2px;">DASHBOARD DE MÉTRICAS</div>'
+    +'</div>'
+    + platBlocks
+    +'</div>'
+
+    // ── RESUMO FINAL (NO FIM) ──
     +'<div style="margin-bottom:24px;">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">'
     +'<div style="width:4px;height:20px;background:'+C+';border-radius:2px;"></div>'
-    +'<div class="syne" style="font-size:16px;font-weight:800;color:#111;">ANÁLISE COMPLETA</div>'
+    +'<div class="syne" style="font-size:18px;font-weight:800;color:#111;">RESUMO FINAL</div>'
     +'</div>'
     + sectionsHTML
     +'</div>'
