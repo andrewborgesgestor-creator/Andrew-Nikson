@@ -113,7 +113,7 @@ hr.div{border:none;border-top:1px solid var(--bd);margin:20px 0;}
     <div class="row3">
       <div class="fg"><span class="lbl">Período / Mês <span class="req">*</span></span><input type="text" id="periodo" placeholder="Ex: 09/03 a 15/03/2026"/></div>
       <div class="fg"><span class="lbl">Segmento do cliente</span><input type="text" id="segmento" placeholder="Ex: Estética, Clínica..."/></div>
-      <div class="fg"><span class="lbl">Investimento total (R$)</span><input type="number" id="invest" placeholder="Ex: 282.29" min="0" step="0.01"/></div>
+      <div class="fg"><span class="lbl">Investimento total (R$)</span><input type="text" id="invest" inputmode="decimal" placeholder="Ex: 2.543,96" autocomplete="off"/></div>
     </div>
     <div class="row1 fg"><span class="lbl">Objetivo principal / KPI <span class="req">*</span></span><input type="text" id="objetivo" placeholder="Ex: Gerar mensagens/leads para o WhatsApp com custo por resultado abaixo de R$ 5"/></div>
   </div>
@@ -188,6 +188,18 @@ Cole do jeito que vier — a IA entende qualquer formato."></textarea>
       <span class="lbl">Observações e contexto do mês</span>
       <textarea id="obs" style="min-height:100px" placeholder="Ex: Campanha evoluiu para Maximizar Conversões após 15 conversões registradas. Feriado na semana 2 afetou volume. Cliente pediu foco em leads para procedimento X..."></textarea>
     </div>
+    <div class="row2" style="margin-top:14px">
+      <div class="fg">
+        <span class="lbl">Tamanho do resumo (linhas)</span>
+        <input type="number" id="resumoLinhas" min="1" max="30" step="1" value="6"/>
+      </div>
+      <div class="fg">
+        <span class="lbl">Dica</span>
+        <div style="font-size:12px;color:var(--mu);line-height:1.6;background:var(--bg3);border:1px solid var(--bd2);border-radius:8px;padding:10px 13px;">
+          Define quantas linhas curtas a seção <strong style="color:#f2f2f2">[VISÃO GERAL DO PERÍODO]</strong> pode ter.
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- BOTÃO GERAR -->
@@ -244,6 +256,57 @@ var selPlats = [];
 var rawResume = '';
 var themeColor = '#FF5C1A';
 
+function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+
+function limitLines(text, maxLines){
+  maxLines = clamp(parseInt(maxLines||0,10)||0, 1, 60);
+  var t = String(text||'').trim();
+  if(!t) return '';
+
+  // If the model already used line breaks, honor them.
+  var hard = t.split(/\r?\n+/).map(function(x){return x.trim();}).filter(Boolean);
+  if(hard.length>=maxLines){
+    return hard.slice(0,maxLines).join('\n');
+  }
+
+  // Otherwise, approximate "lines" by wrapping sentences into ~90-char lines.
+  var parts = t.split(/(?<=[.!?])\s+/).map(function(x){return x.trim();}).filter(Boolean);
+  var lines = [];
+  var cur = '';
+  var targetLen = 90;
+  for(var i=0;i<parts.length;i++){
+    var p = parts[i];
+    if(!cur){
+      cur = p;
+    } else if((cur+' '+p).length<=targetLen){
+      cur = cur+' '+p;
+    } else {
+      lines.push(cur);
+      cur = p;
+    }
+    if(lines.length>=maxLines) break;
+  }
+  if(lines.length<maxLines && cur) lines.push(cur);
+  return lines.slice(0,maxLines).join('\n');
+}
+
+function enforceResumoSize(text, maxLines){
+  var secs = parseSections(text||'');
+  if(!secs || !Object.keys(secs).length) return text;
+  var key = 'VISÃO GERAL DO PERÍODO';
+  if(secs[key]){
+    secs[key] = limitLines(secs[key], maxLines);
+  }
+  // Rebuild in the same order used elsewhere
+  var secOrder = ['VISÃO GERAL DO PERÍODO','DESTAQUES DE PERFORMANCE','ANÁLISE DAS PLATAFORMAS','PONTOS DE ATENÇÃO','PRÓXIMOS PASSOS','MENSAGEM FINAL'];
+  var out = '';
+  secOrder.forEach(function(k){
+    if(!secs[k]) return;
+    out += '['+k+']\n' + secs[k].trim() + '\n\n';
+  });
+  return out.trim();
+}
+
 // ── COLOR SWATCHES ──
 document.querySelectorAll('.color-swatch').forEach(function(el){
   el.addEventListener('click', function(){
@@ -282,6 +345,7 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
   var invest  = document.getElementById('invest').value;
   var seg     = document.getElementById('segmento').value.trim();
   var obs     = document.getElementById('obs').value.trim();
+  var resumoLinhas = clamp(parseInt((document.getElementById('resumoLinhas').value||'6'),10)||6, 1, 30);
   var plats   = selPlats.length ? selPlats.join(', ') : 'não informadas';
 
   document.getElementById('btnGerar').disabled=true;
@@ -291,30 +355,35 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
 
   var prompt =
     'Você é analista sênior de marketing digital da agência Inpactum Digital.\n\n'
-   +'Crie um relatório mensal profissional e fluido em português BR.\n\n'
+   +'Crie um relatório mensal profissional em português BR, com foco em clareza e concisão.\n'
+   +'REGRAS IMPORTANTES:\n'
+   +'- Use SOMENTE as métricas fornecidas em MÉTRICAS. Não invente, não estime, não complete lacunas.\n'
+   +'- Se algo não estiver presente nas métricas, escreva \"não informado\".\n'
+   +'- Se houver mais de uma campanha (ex.: Vendas e Branding/Seguidores), NÃO misture os números: cite cada uma separadamente quando possível.\n'
+   +'- Seja breve: cada seção deve ter no máximo 4-6 frases curtas.\n\n'
    +'DADOS:\n'
    +'- Cliente: '+nome+(seg?' ('+seg+')':'')+'\n'
    +'- Período: '+periodo+'\n'
    +'- Responsável: '+resp+'\n'
    +'- Objetivo/KPI: '+obj+'\n'
    +'- Plataformas: '+plats+'\n'
-   +(invest?'- Investimento total: R$ '+invest+'\n':'')
+   +(parsePtNumber(invest)>0?'- Investimento total informado: '+fmtBRL(parsePtNumber(invest))+'\n':'')
    +'\nMÉTRICAS:\n'+metrics+'\n'
    +(obs?'\nCONTEXTO:\n'+obs+'\n':'')
    +'\nEscreva o relatório dividido em EXATAMENTE estas seções com títulos entre colchetes:\n\n'
    +'[VISÃO GERAL DO PERÍODO]\n'
-   +'2-3 parágrafos narrativos. Mencione o cliente pelo nome. Conecte os números ao objetivo.\n\n'
+   +'Escreva em no máximo '+resumoLinhas+' linha(s) curtas. Mencione o cliente pelo nome. Conecte os números ao objetivo.\n\n'
    +'[DESTAQUES DE PERFORMANCE]\n'
-   +'Texto fluido (sem listas) destacando os 3-5 melhores resultados com dados reais.\n\n'
+   +'3-5 frases curtas destacando melhores resultados (com números exatos quando existirem).\n\n'
    +'[ANÁLISE DAS PLATAFORMAS]\n'
-   +'1 parágrafo por plataforma ativa com os dados reais. Tom analítico e consultivo.\n\n'
+   +'1 parágrafo curto por plataforma/campanha ativa (Meta/Google/Branding/Vendas), usando somente números fornecidos.\n\n'
    +'[PONTOS DE ATENÇÃO]\n'
-   +'1-2 parágrafos construtivos com sugestão prática.\n\n'
+   +'2-4 frases construtivas com sugestão prática.\n\n'
    +'[PRÓXIMOS PASSOS]\n'
-   +'1 parágrafo com 3-4 ações planejadas alinhadas ao objetivo.\n\n'
+   +'3-5 ações curtas, bem objetivas.\n\n'
    +'[MENSAGEM FINAL]\n'
-   +'1 parágrafo caloroso. Mencione o cliente. Assine: '+resp+' — Inpactum Digital.\n\n'
-   +'Tom: parceiro estratégico, consultivo. Sem bullet points. Texto corrido.';
+   +'2-4 frases. Mencione o cliente. Assine: '+resp+' — Inpactum Digital.\n\n'
+   +'Tom: parceiro estratégico, consultivo. Evite texto longo e repetitivo.';
 
   try{
     var res = await fetch('/api/generate',{
@@ -326,6 +395,7 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
     var data=await res.json();
     rawResume=data.text||'';
     if(!rawResume) throw new Error('Resposta vazia da IA.');
+    rawResume = enforceResumoSize(rawResume, resumoLinhas);
 
     document.getElementById('rTitle').textContent=nome+' — '+periodo;
     document.getElementById('rSub').textContent='Resumo gerado por IA · Responsável: '+resp;
@@ -356,6 +426,85 @@ function parseSections(text){
   return result;
 }
 
+// ── NUMBER PARSING (pt-BR friendly) ──
+function parsePtNumber(v){
+  if(v===null||v===undefined) return 0;
+  var s = String(v).trim();
+  if(!s) return 0;
+  s = s.replace(/[^\d.,-]/g,'');
+  if(!s) return 0;
+  var hasDot = s.indexOf('.')>=0;
+  var hasComma = s.indexOf(',')>=0;
+  if(hasDot && hasComma){
+    s = s.replace(/\./g,'').replace(',','.');
+  } else if(hasComma && !hasDot){
+    s = s.replace(',','.');
+  }
+  var n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+
+function fmtBRL(n,decimals){
+  if(!n || n===0) return '—';
+  decimals = (decimals!==undefined)?decimals:2;
+  return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+
+function fmtNum(n,decimals){
+  if(!n || n===0) return '—';
+  decimals = (decimals!==undefined)?decimals:0;
+  return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+
+// Split "Métricas" into logical campaign blocks when possible.
+function splitMetricBlocks(allText){
+  var text = (allText||'').trim();
+  if(!text) return [];
+  var lines = text.replace(/\r\n/g,'\n').split('\n');
+  var blocks = [];
+  var cur = {title:'CONSOLIDADO', text:''};
+
+  function pushCur(){
+    var t = (cur.text||'').trim();
+    if(t) blocks.push({title:cur.title, text:t});
+  }
+
+  var campaignTitleRe = /^\s*(?:#{2,3}\s*)?campanha\s*[:\-]?\s*(.+)\s*$/i;
+  lines.forEach(function(line){
+    var l = (line||'').trim();
+    var m = l.match(campaignTitleRe);
+    if(m){
+      pushCur();
+      cur = {title:m[1].trim().toUpperCase(), text:''};
+      return;
+    }
+    if(/^campanha\s+vendas\b/i.test(l)){
+      pushCur();
+      cur = {title:'VENDAS', text:''};
+      return;
+    }
+    if(/^campanha\b/i.test(l) && /(branding|seguidores|visitas ao perfil)/i.test(l)){
+      pushCur();
+      cur = {title:'BRANDING', text:''};
+      return;
+    }
+    cur.text += line + '\n';
+  });
+  pushCur();
+
+  // Always include a consolidated block first
+  blocks.unshift({title:'CONSOLIDADO', text:text});
+
+  // Deduplicate
+  var seen = {};
+  return blocks.filter(function(b){
+    var key = b.title+'::'+b.text.length;
+    if(seen[key]) return false;
+    seen[key]=1;
+    return true;
+  });
+}
+
 // ── EXTRACT NUMBERS ──
 function extractNums(txt){
   var n={};
@@ -372,7 +521,13 @@ function extractNums(txt){
   n.ctr      = get([/ctr[^\d\n%]*([\d.,]+)/i]);
   n.cpc      = get([/cpc[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
   n.cpm      = get([/cpm[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.freq     = get([/frequ[eê]ncia[^%\d\n]*([\d.,]+)/i,/frequ[eê]ncia\s*m[eé]dia[^%\d\n]*([\d.,]+)/i]);
   n.visitas_lp= get([/vistas?\s*p[aá]gina[^\d\n]*([\d.,]+)/i,/landing[^\d\n]*([\d.,]+)/i,/p[aá]gina\s*de\s*destino[^\d\n]*([\d.,]+)/i]);
+  n.visitas_perfil = get([/visitas?\s*ao\s*perfil[^\d\n]*([\d.,]+)/i,/visitas?\s*no\s*perfil[^\d\n]*([\d.,]+)/i]);
+  n.novos_seguidores = get([/novos?\s*seguidores[^\d\n]*([\d.,]+)/i,/seguidores\s*novos[^\d\n]*([\d.,]+)/i]);
+  n.custo_visita_perfil = get([/custo\s*por\s*visitas?\s*ao\s*perfil[^R\d\n]*R?\$?\s*([\d.,]+)/i,/custo\s*por\s*visita\s*ao\s*perfil[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.custo_seguidor = get([/custo\s*por\s*seguidor[^R\d\n]*R?\$?\s*([\d.,]+)/i]);
+  n.retencao = get([/taxa\s*de\s*reten[cç][aã]o[^%\d\n]*([\d.,]+)\s*%?/i]);
   n.carrinho = get([/adi[cç][oõ]es?\s*ao\s*carrinho[^\d\n]*([\d.,]+)/i,/carrinho[^\d\n]*([\d.,]+)/i]);
   n.inicio_compra= get([/finaliza[cç][aã]o[^\d\n]*([\d.,]+)/i,/inicio\s*de\s*compra[^\d\n]*([\d.,]+)/i,/checkout[^\d\n]*([\d.,]+)/i]);
   n.compras  = get([/compras?[^\d\n]*([\d.,]+)/i,/vendas?[^\d\n]*([\d.,]+)/i,/pedidos?[^\d\n]*([\d.,]+)/i]);
@@ -382,6 +537,13 @@ function extractNums(txt){
   n.alcance  = get([/alcance[^\d\n]*([\d.,]+)/i]);
   n.msgs     = get([/mensagens?[^\d\n]*([\d.,]+)/i,/leads?[^\d\n]*([\d.,]+)/i]);
   n.engajamento= get([/engajamento[^%\d\n]*([\d.,]+)\s*%?/i]);
+  n.engajamentos= get([/engajamentos?[^\d\n]*([\d.,]+)/i,/intera[cç][oõ]es?[^\d\n]*([\d.,]+)/i]);
+  n.video_3s  = get([/reprodu[cç][aã]o\s*por\s*3\s*segundos?[^\d\n]*([\d.,]+)/i]);
+  n.video_total= get([/reprodu[cç][oõ]es?\s*de\s*v[ií]deo[^\d\n]*([\d.,]+)/i,/reprodu[cç][oõ]es?\s*de\s*video[^\d\n]*([\d.,]+)/i]);
+  n.video_25 = get([/reprodu[cç][aã]o\s*de\s*v[ií]deo\s*25%[^\d\n]*([\d.,]+)/i,/v[ií]deo\s*25%[^\d\n]*([\d.,]+)/i]);
+  n.video_50 = get([/reprodu[cç][aã]o\s*de\s*v[ií]deo\s*50%[^\d\n]*([\d.,]+)/i,/v[ií]deo\s*50%[^\d\n]*([\d.,]+)/i]);
+  n.video_75 = get([/reprodu[cç][aã]o\s*de\s*v[ií]deo\s*75%[^\d\n]*([\d.,]+)/i,/v[ií]deo\s*75%[^\d\n]*([\d.,]+)/i]);
+  n.video_95 = get([/reprodu[cç][aã]o\s*de\s*v[ií]deo\s*95%[^\d\n]*([\d.,]+)/i,/v[ií]deo\s*95%[^\d\n]*([\d.,]+)/i]);
   n.roas     = n.invest>0&&n.receita>0 ? Math.round((n.receita/n.invest)*100)/100 : 0;
   n.lucro    = n.receita>0&&n.invest>0 ? Math.round((n.receita-n.invest)*100)/100 : 0;
   return n;
@@ -461,17 +623,18 @@ function buildPDF(){
   var C       = themeColor; // tema escolhido
   var Clight  = C+'22';    // transparente
 
-  var nums = extractNums(metrics);
+  var blocks = splitMetricBlocks(metrics);
+  var consolidated = blocks[0] ? blocks[0].text : metrics;
+  var nums = extractNums(consolidated);
   var secs = parseSections(rawResume);
 
   // ── INVEST DISPLAY ──
-  var investFinal = invest && parseFloat(invest)>0
-    ? parseFloat(invest)
-    : nums.invest;
+  var investInput = parsePtNumber(invest);
+  var investFinal = investInput>0 ? investInput : nums.invest;
   function fmt(v,prefix,decimals){
     if(!v||v===0) return '—';
     prefix=prefix||''; decimals=decimals!==undefined?decimals:2;
-    return prefix+v.toLocaleString('pt-BR',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+    return prefix+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
   }
   var investTotal = fmt(investFinal,'R$ ');
   var roasVal     = nums.roas>0 ? nums.roas.toFixed(2).replace('.',',')+'x' : (investFinal>0&&nums.receita>0?(nums.receita/investFinal).toFixed(2).replace('.',',')+'x':'—');
@@ -636,6 +799,91 @@ function buildPDF(){
 
   platBlocks += platSection(platTitle.toUpperCase(), platDot, row1, funnelChart + roasCard + convCard);
 
+  // ── BLOCO(S) POR CAMPANHA (Vendas / Branding / etc), quando detectado ──
+  // blocks[0] é o consolidado (texto completo). A partir do índice 1 tentamos gerar cards/gráficos específicos.
+  for(var bi=1;bi<blocks.length;bi++){
+    var b = blocks[bi];
+    if(!b || !b.text) continue;
+    var bn = extractNums(b.text);
+
+    // ignore blocks without meaningful metrics
+    var meaningful = bn.compras>0||bn.receita>0||bn.novos_seguidores>0||bn.visitas_perfil>0||bn.msgs>0||bn.cliques>0||bn.impressoes>0||bn.video_total>0;
+    if(!meaningful) continue;
+
+    // title heuristics
+    var title = (b.title||'CAMPANHA').toUpperCase();
+    var dot = /brand|segu/i.test(title) ? '#6366F1' : (/venda/i.test(title) ? '#3ecf8e' : C);
+
+    // cards
+    var cc = [];
+    if(bn.invest>0)        cc.push(mcard('💰','Investimento',fmt(bn.invest,'R$ '),''));
+    if(bn.receita>0)       cc.push(mcard('💹','Receita',fmt(bn.receita,'R$ '),'',true));
+    if(bn.compras>0)       cc.push(mcard('✅','Compras',fmtN(bn.compras),'KPI',true));
+    if(bn.custo_compra>0)  cc.push(mcard('💵','Custo/Compra',fmt(bn.custo_compra,'R$ '),''));
+    if(bn.ticket>0)        cc.push(mcard('🏷','Ticket Médio',fmt(bn.ticket,'R$ '),''));
+    if(bn.novos_seguidores>0) cc.push(mcard('➕','Novos Seguidores',fmtN(bn.novos_seguidores),'KPI',true));
+    if(bn.visitas_perfil>0)   cc.push(mcard('👤','Visitas ao Perfil',fmtN(bn.visitas_perfil),''));
+    if(bn.custo_seguidor>0)   cc.push(mcard('💸','Custo/Seguidor',fmt(bn.custo_seguidor,'R$ '),''));
+    if(bn.custo_visita_perfil>0) cc.push(mcard('💸','Custo/Visita Perfil',fmt(bn.custo_visita_perfil,'R$ '),''));
+    if(bn.msgs>0 && bn.compras===0 && bn.novos_seguidores===0) cc.push(mcard('💬','Mensagens/Leads',fmtN(bn.msgs),'KPI',true));
+    if(bn.impressoes>0)    cc.push(mcard('📊','Impressões',fmtN(bn.impressoes),''));
+    if(bn.alcance>0)       cc.push(mcard('👀','Alcance',fmtN(bn.alcance),''));
+    if(bn.cliques>0)       cc.push(mcard('🖱','Cliques',fmtN(bn.cliques),''));
+    if(bn.ctr>0)           cc.push(mcard('📈','CTR',bn.ctr.toFixed(2).replace('.',',')+'%',''));
+    if(bn.cpc>0)           cc.push(mcard('💲','CPC',fmt(bn.cpc,'R$ '),''));
+    if(bn.cpm>0)           cc.push(mcard('📉','CPM',fmt(bn.cpm,'R$ '),''));
+    if(bn.freq>0)          cc.push(mcard('🔁','Frequência',bn.freq.toFixed(2).replace('.',','),''));
+    if(bn.video_total>0)   cc.push(mcard('🎬','Reproduções Vídeo',fmtN(bn.video_total),''));
+
+    var cardsRow = cc.slice(0,8);
+
+    // funnel
+    var st = [];
+    if(bn.impressoes>0) st.push({label:'Impressões',value:bn.impressoes});
+    if(bn.cliques>0)    st.push({label:'Cliques',value:bn.cliques});
+    if(bn.visitas_lp>0) st.push({label:'Visitas LP',value:bn.visitas_lp});
+    if(bn.visitas_perfil>0) st.push({label:'Visitas Perfil',value:bn.visitas_perfil});
+    if(bn.carrinho>0)   st.push({label:'Add Carrinho',value:bn.carrinho});
+    if(bn.inicio_compra>0) st.push({label:'Checkout',value:bn.inicio_compra});
+    if(bn.compras>0)    st.push({label:'Compras ✓',value:bn.compras});
+    if(bn.novos_seguidores>0) st.push({label:'Seguidores ✓',value:bn.novos_seguidores});
+    else if(bn.msgs>0)  st.push({label:'Conversões',value:bn.msgs});
+
+    var fun = chartCard('Funil',
+      st.length>1
+        ? '<div style="padding:6px 0;">'+makeFunnel(st,C)+'</div>'
+        : '<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Dados de funil não informados</div>'
+    );
+
+    var perf = '';
+    if(bn.receita>0 && bn.invest>0){
+      var r = bn.receita/bn.invest;
+      perf = chartCard('ROAS',
+        '<div style="text-align:center;padding:10px 0;">'
+        +'<div style="font-size:38px;font-weight:900;color:'+C+';">'+r.toFixed(2).replace('.',',')+'x</div>'
+        +'<div style="font-size:11px;color:#888;margin-top:4px;">Receita / Investimento</div>'
+        +'</div>'
+      );
+    } else if(bn.cpc>0){
+      perf = chartCard('CPC',
+        '<div style="text-align:center;padding:10px 0;">'
+        +'<div style="font-size:38px;font-weight:900;color:'+C+';">'+fmt(bn.cpc,'R$ ')+'</div>'
+        +'<div style="font-size:11px;color:#888;margin-top:4px;">Custo por clique</div>'
+        +'</div>'
+      );
+    } else {
+      perf = chartCard('Performance','<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Sem dados suficientes</div>');
+    }
+
+    var vol = chartCard('Volume',
+      (bn.impressoes>0&&bn.cliques>0)
+        ? makeBar([{label:'Impressões',value:bn.impressoes},{label:'Cliques',value:bn.cliques}].concat(bn.visitas_lp>0?[{label:'Visitas',value:bn.visitas_lp}]:[]),C)
+        : '<div style="font-size:12px;color:#aaa;text-align:center;padding:20px 0;">Dados não informados</div>'
+    );
+
+    platBlocks += platSection(title, dot, cardsRow, fun + perf + vol);
+  }
+
 
   // ── INSIGHTS ──
   var insightSecs = parseSections(rawResume);
@@ -694,9 +942,13 @@ function buildPDF(){
   if(metas.length){
     summaryCards+='<div style="flex:1;background:#0a0a0a;border-radius:12px;padding:20px;margin-right:12px;">'
       +'<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#555;margin-bottom:4px;">META ADS</div>'
-      +'<div style="font-size:30px;font-weight:900;color:'+C+';line-height:1;">'+(nums.msgs>0?nums.msgs.toLocaleString('pt-BR'):'—')+'</div>'
-      +'<div style="font-size:11px;color:#888;margin-top:4px;">MENSAGENS</div>'
-      +'<div style="font-size:10px;color:#555;margin-top:8px;">Canal com mais mensagens</div>'
+      +'<div style="font-size:30px;font-weight:900;color:'+C+';line-height:1;">'
+      +(nums.compras>0?nums.compras.toLocaleString('pt-BR'):(nums.novos_seguidores>0?nums.novos_seguidores.toLocaleString('pt-BR'):(nums.msgs>0?nums.msgs.toLocaleString('pt-BR'):'—')))
+      +'</div>'
+      +'<div style="font-size:11px;color:#888;margin-top:4px;">'
+      +(nums.compras>0?'COMPRAS':(nums.novos_seguidores>0?'SEGUIDORES':'CONVERSÕES'))
+      +'</div>'
+      +'<div style="font-size:10px;color:#555;margin-top:8px;">Canal com maior volume</div>'
       +'<div style="display:inline-block;margin-top:8px;background:'+C+'22;border:1px solid '+C+'44;color:'+C+';font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px;">MAIOR VOLUME</div>'
       +'</div>';
   }
@@ -710,16 +962,25 @@ function buildPDF(){
       +'</div>';
   }
 
+  // KPI totals (avoid undefined vars)
+  var totalClic = nums.cliques>0 ? nums.cliques : 0;
+  var totalMsgs = (nums.compras>0 ? nums.compras : (nums.novos_seguidores>0 ? nums.novos_seguidores : (nums.msgs>0 ? nums.msgs : 0)));
+  var labelConv = (nums.compras>0 ? 'Compras' : (nums.novos_seguidores>0 ? 'Seguidores' : 'Conversões'));
+
   // ── ASSEMBLE FULL HTML ──
   var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/>'
-    +'<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;}</style>'
+    +'<meta name="viewport" content="width=device-width,initial-scale=1.0"/>'
+    +'<link rel="preconnect" href="https://fonts.googleapis.com">'
+    +'<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    +'<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Inter,Arial,Helvetica,sans-serif;background:#f5f5f5;} .syne{font-family:Syne,Inter,Arial,sans-serif;}</style>'
     +'</head><body>'
 
     // ── CAPA HEADER ──
     +'<div style="background:'+C+';padding:32px 40px 28px;">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
     +'<div>'
-    +'<div style="font-size:32px;font-weight:900;color:#fff;letter-spacing:-.5px;text-transform:uppercase;">'+nome+'</div>'
+    +'<div class="syne" style="font-size:32px;font-weight:900;color:#fff;letter-spacing:-.5px;text-transform:uppercase;">'+nome+'</div>'
     +'<div style="font-size:14px;color:rgba(255,255,255,.75);margin-top:6px;letter-spacing:.02em;">Relatório de Tráfego Pago | Performance Dashboard</div>'
     +'</div>'
     +'<div style="background:rgba(255,255,255,.2);border-radius:10px;padding:10px 18px;text-align:center;backdrop-filter:blur(4px);">'
@@ -730,9 +991,9 @@ function buildPDF(){
 
     // ── KPI BAR ──
     +'<div style="background:#111;display:flex;border-bottom:1px solid #222;">'
-    + kpiBlock('💰','INVESTIMENTO TOTAL',investTotal,'Meta + Google', true)
-    + kpiBlock('💬','TOTAL DE MENSAGENS',(typeof totalMsgs==='number'?totalMsgs.toLocaleString('pt-BR'):totalMsgs),'Conversões',true)
-    + kpiBlock('🖱','TOTAL DE CLIQUES',(typeof totalClic==='number'?totalClic.toLocaleString('pt-BR'):totalClic),'Todos os canais',true)
+    + kpiBlock('💰','INVESTIMENTO TOTAL',investTotal,'Período', true)
+    + kpiBlock('🎯','KPI PRINCIPAL',fmtNum(totalMsgs),labelConv,true)
+    + kpiBlock('🖱','TOTAL DE CLIQUES',fmtNum(totalClic),'Todos os canais',true)
     +'</div>'
 
     // ── PLATFORM BLOCKS ──
@@ -743,7 +1004,7 @@ function buildPDF(){
     +'<div style="margin-bottom:24px;">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">'
     +'<div style="font-size:18px;">💡</div>'
-    +'<div style="font-size:16px;font-weight:800;color:#111;letter-spacing:-.2px;">ANÁLISE GERAL &amp; INSIGHTS</div>'
+    +'<div class="syne" style="font-size:16px;font-weight:800;color:#111;letter-spacing:-.2px;">ANÁLISE GERAL &amp; INSIGHTS</div>'
     +'</div>'
     + insightsHTML
     +'</div>'
@@ -752,7 +1013,7 @@ function buildPDF(){
     +'<div style="margin-bottom:24px;">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">'
     +'<div style="width:4px;height:20px;background:'+C+';border-radius:2px;"></div>'
-    +'<div style="font-size:16px;font-weight:800;color:#111;">ANÁLISE COMPLETA</div>'
+    +'<div class="syne" style="font-size:16px;font-weight:800;color:#111;">ANÁLISE COMPLETA</div>'
     +'</div>'
     + sectionsHTML
     +'</div>'
@@ -795,39 +1056,32 @@ document.getElementById('btnPDF').addEventListener('click', function(){
   btn.textContent = '⏳ Preparando...';
 
   try {
-    // Abre numa nova aba e dispara o print automaticamente
+    // Cria Blob HTML e faz download direto
     var blob = new Blob([html], {type: 'text/html;charset=utf-8'});
     var url  = URL.createObjectURL(blob);
-    var win  = window.open(url, '_blank');
-    if(win){
-      win.onload = function(){
-        setTimeout(function(){
-          win.focus();
-          win.print();
-          // Após imprimir, libera memória
-          setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
-        }, 800);
-      };
-    } else {
-      // Fallback: se popup bloqueado, faz download normal
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'Relatorio_Inpactum_' + nome.replace(/\s+/g,'_') + '_' + periodo.replace(/[\/\s]/g,'-') + '.html';
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function(){ URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
-      var tip = document.getElementById('pdfTip');
-      if(tip) tip.style.display = 'block';
-    }
+    var a    = document.createElement('a');
+    var fname = 'Relatorio_Inpactum_' + nome.replace(/\s+/g,'_') + '_' + periodo.replace(/[\/\s]/g,'-') + '.html';
+    a.href     = url;
+    a.download = fname;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 1000);
 
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" style="width:16px;height:16px;vertical-align:middle"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Baixar PDF com Dashboard';
 
+    // Mostra instrução
+    var tip = document.getElementById('pdfTip');
+    if(tip) tip.style.display = 'block';
+
   } catch(e) {
     btn.disabled = false;
     btn.textContent = 'Baixar PDF com Dashboard';
-    alert('Erro: ' + e.message);
+    alert('Erro ao gerar arquivo: ' + e.message);
   }
 });
 </script>
