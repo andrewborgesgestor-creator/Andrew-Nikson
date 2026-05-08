@@ -316,6 +316,21 @@ function limitLines(text, maxLines){
 function enforceResumoSize(text, maxLines){
   var secs = parseSections(text||'');
   if(!secs || !Object.keys(secs).length) return text;
+  function normalizeKey(s){
+    return String(s||'').toLowerCase().replace(/[^\p{L}\p{N}%$.,\s]/gu,'').replace(/\s+/g,' ').trim();
+  }
+  function dedupeSentencesLocal(t){
+    var parts = String(t||'').split(/(?<=[.!?])\s+/).map(function(x){return x.trim();}).filter(Boolean);
+    var seen = {};
+    var out = [];
+    parts.forEach(function(p){
+      var k = normalizeKey(p);
+      if(!k || seen[k]) return;
+      seen[k] = 1;
+      out.push(p);
+    });
+    return out.join(' ').trim();
+  }
   // Normalize model naming to match your preference
   Object.keys(secs).forEach(function(k){
     secs[k] = String(secs[k])
@@ -323,6 +338,20 @@ function enforceResumoSize(text, maxLines){
       .replace(/meta\s*ads\s*[-–]\s*branding/gi,'Branding')
       .replace(/meta\s*ads\s*[-–]\s*vendas/gi,'Vendas')
       .replace(/metaverso/gi,'Meta');
+    secs[k] = dedupeSentencesLocal(secs[k]);
+  });
+  // Remove repeated sentences across sections (keeps first occurrence only)
+  var globalSeen = {};
+  Object.keys(secs).forEach(function(k){
+    var parts = String(secs[k]||'').split(/(?<=[.!?])\s+/).map(function(x){return x.trim();}).filter(Boolean);
+    var kept = [];
+    parts.forEach(function(p){
+      var key = normalizeKey(p);
+      if(!key || globalSeen[key]) return;
+      globalSeen[key] = 1;
+      kept.push(p);
+    });
+    secs[k] = kept.join(' ').trim();
   });
   var key = 'VISÃO GERAL DO PERÍODO';
   if(secs[key]){
@@ -420,6 +449,7 @@ document.getElementById('btnGerar').addEventListener('click', async function(){
    +'- Use os nomes exatamente assim (sem inventar): \"Vendas\" e \"Branding\". Não escreva \"Metaverso/Branding\".\n'
    +'- Baseie a análise no que foi escrito em CONTEXTO (causas, decisões, testes, sazonalidade, mudanças de estratégia).\n'
    +'- Evite frases genéricas. Sempre conecte diagnóstico + número + implicação de negócio.\n'
+   +'- Não repita a mesma informação em seções diferentes. Cada seção deve trazer informação complementar.\n'
    +'- NÃO use markdown: sem asteriscos, sem #, sem listas com -, apenas texto limpo.\n'
    +'- Seja breve: cada seção deve ter no máximo 4-6 frases curtas.\n\n'
    +'DADOS:\n'
@@ -937,6 +967,7 @@ function buildPDF(){
     var title = (b.title||'CAMPANHA').toUpperCase().replace(/^DE\s+/,'').replace(/[:]+$/,'').trim();
     if(/SEGUIDORES\/BRANDING/.test(title) || /SEGUIDORES\s*\/\s*BRANDING/.test(title)) title = 'BRANDING';
     if(/BRANDING/.test(title) && !/VENDAS/.test(title)) title = 'BRANDING';
+    if(title === 'CONSOLIDADO') continue;
 
     var score = 0;
     if(bn.impressoes>0) score++;
@@ -958,6 +989,7 @@ function buildPDF(){
   Object.keys(bestByTitle).forEach(function(k){
     var title = bestByTitle[k].title;
     var bn = bestByTitle[k].nums;
+    if(title === 'CONSOLIDADO') return;
     // ignore blocks without meaningful metrics
     var meaningful = bn.compras>0||bn.receita>0||bn.novos_seguidores>0||bn.visitas_perfil>0||bn.msgs>0||bn.cliques>0||bn.impressoes>0||bn.video_total>0;
     if(!meaningful) return;
