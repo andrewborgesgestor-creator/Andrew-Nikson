@@ -795,32 +795,39 @@ document.getElementById('btnPDF').addEventListener('click', function(){
   btn.textContent = '⏳ Preparando...';
 
   try {
-    // Cria Blob HTML e faz download direto
+    // Abre numa nova aba e dispara o print automaticamente
     var blob = new Blob([html], {type: 'text/html;charset=utf-8'});
     var url  = URL.createObjectURL(blob);
-    var a    = document.createElement('a');
-    var fname = 'Relatorio_Inpactum_' + nome.replace(/\s+/g,'_') + '_' + periodo.replace(/[\/\s]/g,'-') + '.html';
-    a.href     = url;
-    a.download = fname;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    }, 1000);
+    var win  = window.open(url, '_blank');
+    if(win){
+      win.onload = function(){
+        setTimeout(function(){
+          win.focus();
+          win.print();
+          // Após imprimir, libera memória
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
+        }, 800);
+      };
+    } else {
+      // Fallback: se popup bloqueado, faz download normal
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'Relatorio_Inpactum_' + nome.replace(/\s+/g,'_') + '_' + periodo.replace(/[\/\s]/g,'-') + '.html';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+      var tip = document.getElementById('pdfTip');
+      if(tip) tip.style.display = 'block';
+    }
 
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" style="width:16px;height:16px;vertical-align:middle"><path d="M8 2v8m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Baixar PDF com Dashboard';
 
-    // Mostra instrução
-    var tip = document.getElementById('pdfTip');
-    if(tip) tip.style.display = 'block';
-
   } catch(e) {
     btn.disabled = false;
     btn.textContent = 'Baixar PDF com Dashboard';
-    alert('Erro ao gerar arquivo: ' + e.message);
+    alert('Erro: ' + e.message);
   }
 });
 </script>
